@@ -8,13 +8,13 @@
     </button>
   </div>
   <nav class="sidebar-nav">
-    <a class="sidebar-link active" href="{{ url_for('dashboard') }}" aria-current="page"><i class="bi bi-grid-1x2-fill"></i><span>Dashboard</span></a>
+    <a class="sidebar-link{% if active_page == 'dashboard' %} active{% endif %}" href="{{ url_for('dashboard') }}"{% if active_page == 'dashboard' %} aria-current="page"{% endif %}><i class="bi bi-grid-1x2-fill"></i><span>Dashboard</span></a>
     <a class="sidebar-link" href="#"><i class="bi bi-box-seam"></i><span>Productos</span></a>
     <a class="sidebar-link" href="#"><i class="bi bi-boxes"></i><span>Inventario</span></a>
     <a class="sidebar-link" href="#"><i class="bi bi-box-arrow-in-down"></i><span>Entradas</span></a>
     <a class="sidebar-link" href="#"><i class="bi bi-box-arrow-up"></i><span>Salidas</span></a>
     <a class="sidebar-link" href="#"><i class="bi bi-clipboard-check"></i><span>Solicitudes</span></a>
-    <a class="sidebar-link" href="#"><i class="bi bi-tools"></i><span>Órdenes de Trabajo</span></a>
+    <a class="sidebar-link{% if active_page == 'work_orders' %} active{% endif %}" href="{{ url_for('new_work_order') }}"{% if active_page == 'work_orders' %} aria-current="page"{% endif %}><i class="bi bi-tools"></i><span>Órdenes de Trabajo</span></a>
     <a class="sidebar-link" href="#"><i class="bi bi-buildings"></i><span>Empresas</span></a>
     <a class="sidebar-link" href="#"><i class="bi bi-people"></i><span>Usuarios</span></a>
   </nav>

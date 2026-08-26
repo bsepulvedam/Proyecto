@@ -43,5 +43,10 @@ def dashboard(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(
         request=request,
         name="dashboard/index.html",
-        context={"demo": DASHBOARD_DEMO},
+        context={
+            "demo": DASHBOARD_DEMO,
+            "active_page": "dashboard",
+            "page_title": "Dashboard",
+            "page_eyebrow": "Resumen general",
+        },
     )

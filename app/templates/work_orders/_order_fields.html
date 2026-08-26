@@ -1,0 +1,8 @@
+{% for product in order.productos %}
+  <input type="hidden" name="descripcion" value="{{ product.descripcion }}">
+  <input type="hidden" name="unidad" value="{{ product.unidad }}">
+  <input type="hidden" name="cantidad" value="{{ product.cantidad }}">
+  <input type="hidden" name="medida_especifica" value="{{ product.medida_especifica or '' }}">
+{% endfor %}
+<input type="hidden" name="comuna" value="{{ order.comuna }}">
+<input type="hidden" name="observaciones" value="{{ order.observaciones or '' }}">

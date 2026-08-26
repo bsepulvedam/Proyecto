@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Nueva OT | BOLIKLOR{% endblock %}
+{% block body %}
+  {% include "partials/sidebar.html" %}
+  <div class="main-wrapper">
+    {% include "partials/topbar.html" %}
+    <main class="content">
+      <form class="work-order-form" method="post" action="{{ url_for('review_work_order') }}" novalidate>
+        {% if errors %}<div class="alert alert-danger" role="alert"><strong>No pudimos continuar.</strong><ul class="mb-0 mt-2">{% for error in errors %}<li>{{ error }}</li>{% endfor %}</ul></div>{% endif %}
+        <section class="form-card" aria-labelledby="order-info-title">
+          <div class="form-card-header"><span class="section-icon"><i class="bi bi-clipboard2-plus"></i></span><div><p class="section-kicker">Información de la orden</p><h2 id="order-info-title">Nueva orden de trabajo</h2></div></div>
+          <div class="row g-3">
+            <div class="col-12 col-md-6"><label class="form-label" for="comuna">Orden de trabajo para la comuna de <span class="required-mark">*</span></label><select id="comuna" name="comuna" class="form-select" required><option value="">Seleccionar comuna</option>{% for comuna in allowed_comunas %}<option value="{{ comuna }}"{% if selected_comuna == comuna %} selected{% endif %}>{{ comuna }}</option>{% endfor %}</select></div>
+            <div class="col-12 col-md-6"><span class="field-label">N° Orden de Trabajo</span><span class="readonly-value readonly-value--highlight">Se asignará al confirmar</span></div>
+            <div class="col-12 col-md-6"><span class="field-label">Empresa que proviene</span><span class="readonly-value">Por definir</span></div>
+            <div class="col-12 col-md-6"><span class="field-label">Recibe</span><span class="readonly-value">Por definir</span></div>
+            <div class="col-6 col-lg-3"><span class="field-label">Fecha pedido</span><span class="readonly-value">{{ fecha_pedido }}</span></div>
+            <div class="col-6 col-lg-3"><span class="field-label">Fecha entrega</span><span class="readonly-value">{{ fecha_entrega }}</span></div>
+            <div class="col-6 col-lg-3"><span class="field-label">Fecha finalización</span><span class="readonly-value">—</span></div>
+            <div class="col-6 col-lg-3"><span class="field-label">Estado</span><span class="readonly-value">—</span></div>
+          </div>
+        </section>
+        <section class="form-card" aria-labelledby="client-title"><div class="form-card-header"><span class="form-step">1</span><div><p class="section-kicker">Datos generales</p><h2 id="client-title">Datos del cliente</h2></div></div><span class="field-label">Cliente</span><span class="readonly-value">Se definirá automáticamente más adelante</span></section>
+        <section class="form-card" aria-labelledby="products-title">
+          <div class="form-card-header form-card-header--actions"><div class="d-flex align-items-center gap-3"><span class="form-step">2</span><div><p class="section-kicker">Detalle</p><h2 id="products-title">Productos / detalle del trabajo</h2></div></div><button id="add-product-row" class="btn btn-outline-dark btn-sm" type="button"><i class="bi bi-plus-lg"></i> Agregar producto</button></div>
+          <p class="form-help">Completa al menos una fila. Las filas completamente vacías serán ignoradas.</p>
+          <div class="table-responsive"><table class="table work-order-table align-middle mb-0"><thead><tr><th>Descripción</th><th>UND.</th><th>CANT.</th><th>Medida / Espec.</th><th><span class="visually-hidden">Acciones</span></th></tr></thead><tbody id="product-rows">
+            {% for row in product_rows %}<tr class="product-row" data-base-row="{{ 'true' if loop.index <= 5 else 'false' }}"><td><input class="form-control" type="text" name="descripcion" value="{{ row.descripcion }}" aria-label="Descripción fila {{ loop.index }}"></td><td><input class="form-control unit-input" type="text" name="unidad" value="{{ row.unidad }}" aria-label="Unidad fila {{ loop.index }}"></td><td><input class="form-control quantity-input" type="number" name="cantidad" value="{{ row.cantidad }}" min="0.001" step="0.001" aria-label="Cantidad fila {{ loop.index }}"></td><td><input class="form-control" type="text" name="medida_especifica" value="{{ row.medida_especifica }}" aria-label="Medida o especificación fila {{ loop.index }}"></td><td><button class="icon-button remove-product-row{% if loop.index <= 5 %} invisible{% endif %}" type="button" aria-label="Eliminar fila"><i class="bi bi-trash"></i></button></td></tr>{% endfor %}
+          </tbody></table></div>
+          <template id="product-row-template"><tr class="product-row" data-base-row="false"><td><input class="form-control" type="text" name="descripcion" aria-label="Descripción"></td><td><input class="form-control unit-input" type="text" name="unidad" aria-label="Unidad"></td><td><input class="form-control quantity-input" type="number" name="cantidad" min="0.001" step="0.001" aria-label="Cantidad"></td><td><input class="form-control" type="text" name="medida_especifica" aria-label="Medida o especificación"></td><td><button class="icon-button remove-product-row" type="button" aria-label="Eliminar fila"><i class="bi bi-trash"></i></button></td></tr></template>
+        </section>
+        <section class="form-card" aria-labelledby="observations-title"><div class="form-card-header"><span class="form-step">3</span><div><p class="section-kicker">Información adicional</p><h2 id="observations-title">Observaciones</h2></div></div><label class="visually-hidden" for="observaciones">Observaciones</label><textarea id="observaciones" name="observaciones" class="form-control" rows="4" placeholder="Agrega información relevante para esta orden">{{ observaciones }}</textarea></section>
+        <div class="form-actions"><a class="btn btn-light" href="{{ url_for('dashboard') }}">Cancelar</a><button class="btn btn-brand px-4" type="submit">Revisar OT <i class="bi bi-arrow-right ms-2"></i></button></div>
+      </form>
+    </main>
+  </div>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', path='/js/work-orders.js') }}"></script>{% endblock %}

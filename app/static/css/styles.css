@@ -79,6 +79,36 @@ a { color: inherit; }
 .badge-status--info { background: #e5f0f8; color: #285f89; }
 .badge-status--neutral { background: var(--color-gray-100); color: var(--color-gray-700); }
 .sidebar-backdrop { position: fixed; inset: 0; z-index: 1030; visibility: hidden; background: rgba(0,0,0,.55); opacity: 0; transition: opacity .25s, visibility .25s; }
+.form-card { margin-bottom: 1.25rem; padding: 1.25rem; border: 1px solid var(--color-gray-100); border-radius: var(--radius-md); background: var(--color-white); box-shadow: 0 5px 18px rgba(0,0,0,.045); }
+.form-card-header { display: flex; align-items: center; gap: .85rem; margin-bottom: 1.2rem; }
+.form-card-header--actions { justify-content: space-between; }
+.form-card h2, .review-heading h2 { margin: 0; font-size: 1.15rem; font-weight: 750; }
+.form-step { flex: 0 0 42px; height: 42px; display: grid; place-items: center; border-radius: 11px; background: var(--color-yellow); color: var(--color-black); font-weight: 800; }
+.required-mark { color: var(--color-danger); }
+.field-label { display: block; margin-bottom: .35rem; color: var(--color-gray-400); font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+.readonly-value { min-height: 48px; display: flex; align-items: center; padding: .65rem .8rem; border: 1px solid var(--color-gray-100); border-radius: 8px; background: #fafaf8; color: var(--color-gray-700); font-size: .88rem; }
+.readonly-value--highlight { border-color: rgba(244,196,0,.45); background: rgba(244,196,0,.12); color: #725b00; font-weight: 700; }
+.form-select { min-height: 48px; border-color: #d9d9d5; }
+.form-select:focus { border-color: var(--color-yellow-dark); box-shadow: 0 0 0 .2rem rgba(244,196,0,.18); }
+.form-help { margin: -.4rem 0 1rem; color: var(--color-gray-400); font-size: .78rem; }
+.work-order-table { min-width: 850px; }
+.work-order-table .form-control { min-width: 150px; }
+.work-order-table .unit-input { min-width: 85px; }
+.work-order-table .quantity-input { min-width: 100px; }
+.work-order-table td:last-child, .work-order-table th:last-child { width: 52px; padding-left: .25rem; padding-right: .25rem; }
+.remove-product-row { color: var(--color-danger); font-size: 1rem; }
+.form-actions { display: flex; justify-content: flex-end; gap: .75rem; padding-bottom: 1rem; }
+.form-actions--split { justify-content: space-between; }
+.review-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1.25rem; }
+.review-heading p:last-child { margin: .3rem 0 0; color: var(--color-gray-700); }
+.status-pill--pending { background: #fff3cd; color: #7d6200; }
+.review-observations { margin: 0; color: var(--color-gray-700); white-space: pre-wrap; }
+.success-shell { min-height: calc(100vh - 82px); display: grid; place-items: center; }
+.success-card { width: min(100%, 620px); padding: clamp(1.5rem, 5vw, 3rem); border-top: 5px solid var(--color-yellow); border-radius: var(--radius-lg); background: var(--color-white); box-shadow: var(--shadow-soft); text-align: center; }
+.success-icon { width: 72px; height: 72px; display: grid; place-items: center; margin: 0 auto 1.25rem; border-radius: 50%; background: #e8f5ee; color: var(--color-success); font-size: 2rem; }
+.success-card h2 { margin: 0; font-size: clamp(2rem, 8vw, 3.5rem); font-weight: 850; }
+.success-card > p:not(.section-kicker) { margin: .5rem 0 1.75rem; color: var(--color-gray-700); }
+.success-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: .65rem; }
 
 @media (max-width: 991.98px) {
   .sidebar { transform: translateX(-100%); box-shadow: 12px 0 32px rgba(0,0,0,.25); }
@@ -94,6 +124,10 @@ a { color: inherit; }
   .welcome-panel { align-items: flex-start; flex-direction: column; }
   .data-card-header { align-items: flex-start; }
   .data-card-header p, .data-card-header a { display: none; }
+  .form-card { padding: 1rem; }
+  .form-card-header--actions, .review-heading { align-items: flex-start; flex-direction: column; }
+  .form-actions, .form-actions--split { align-items: stretch; flex-direction: column-reverse; }
+  .form-actions form, .form-actions .btn, .success-actions .btn { width: 100%; }
 }
 
 @media (prefers-reduced-motion: reduce) {

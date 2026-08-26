@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Revisar OT | BOLIKLOR{% endblock %}
+{% block body %}
+  {% include "partials/sidebar.html" %}
+  <div class="main-wrapper">
+    {% include "partials/topbar.html" %}
+    <main class="content">
+      <div class="review-heading"><div><p class="section-kicker">Antes de confirmar</p><h2>Revisa la orden de trabajo</h2><p>El número oficial será asignado por PostgreSQL únicamente al confirmar.</p></div><span class="status-pill status-pill--pending"><i class="bi bi-hourglass-split"></i> Pendiente de confirmación</span></div>
+      {% if error %}<div class="alert alert-danger" role="alert">{{ error }}</div>{% endif %}
+      <section class="form-card review-card"><div class="row g-3">
+        <div class="col-12 col-md-6"><span class="field-label">Comuna</span><span class="readonly-value">{{ order.comuna }}</span></div><div class="col-12 col-md-6"><span class="field-label">N° Orden de Trabajo</span><span class="readonly-value readonly-value--highlight">Se asignará al confirmar</span></div>
+        <div class="col-12 col-md-6"><span class="field-label">Empresa origen</span><span class="readonly-value">Por definir</span></div><div class="col-12 col-md-6"><span class="field-label">Recibe</span><span class="readonly-value">Por definir</span></div>
+        <div class="col-6 col-lg-3"><span class="field-label">Fecha pedido</span><span class="readonly-value">{{ fecha_pedido }}</span></div><div class="col-6 col-lg-3"><span class="field-label">Fecha entrega</span><span class="readonly-value">{{ fecha_entrega }}</span></div><div class="col-6 col-lg-3"><span class="field-label">Fecha finalización</span><span class="readonly-value">—</span></div><div class="col-6 col-lg-3"><span class="field-label">Estado</span><span class="readonly-value">—</span></div>
+      </div></section>
+      <section class="form-card"><div class="form-card-header"><span class="form-step">1</span><div><p class="section-kicker">Datos generales</p><h2>Datos del cliente</h2></div></div><span class="field-label">Cliente</span><span class="readonly-value">Se definirá automáticamente más adelante</span></section>
+      <section class="form-card"><div class="form-card-header"><span class="form-step">2</span><div><p class="section-kicker">Detalle validado</p><h2>Productos / detalle del trabajo</h2></div></div><div class="table-responsive"><table class="table work-order-table align-middle mb-0"><thead><tr><th>Descripción</th><th>UND.</th><th>CANT.</th><th>Medida / Espec.</th></tr></thead><tbody>{% for product in order.productos %}<tr><td><strong>{{ product.descripcion }}</strong></td><td>{{ product.unidad }}</td><td>{{ product.cantidad }}</td><td>{{ product.medida_especifica or '—' }}</td></tr>{% endfor %}</tbody></table></div></section>
+      <section class="form-card"><div class="form-card-header"><span class="form-step">3</span><div><p class="section-kicker">Información adicional</p><h2>Observaciones</h2></div></div><p class="review-observations">{{ order.observaciones or 'Sin observaciones' }}</p></section>
+      <div class="form-actions form-actions--split">
+        <form method="post" action="{{ url_for('new_work_order') }}">{% include "work_orders/_order_fields.html" %}<button class="btn btn-light" type="submit"><i class="bi bi-arrow-left me-2"></i>Editar</button></form>
+        <form method="post" action="{{ url_for('confirm_work_order') }}" data-confirm-form>{% include "work_orders/_order_fields.html" %}<button class="btn btn-brand px-4" type="submit" data-confirm-button>Confirmar OT <i class="bi bi-check2-circle ms-2"></i></button></form>
+      </div>
+    </main>
+  </div>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', path='/js/work-orders.js') }}"></script>{% endblock %}

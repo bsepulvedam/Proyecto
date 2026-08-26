@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard | BOLIKLOR{% endblock %}
+
+{% block body %}
+  {% include "partials/sidebar.html" %}
+  <div class="main-wrapper">
+    {% include "partials/topbar.html" %}
+    <main class="content">
+      <section class="welcome-panel">
+        <div><p class="section-kicker">{{ demo.fecha }}</p><h2>Buenos días, {{ demo.usuario.nombre.split(' ')[0] }}</h2><p>Este es el estado actual de la bodega.</p></div>
+        <span class="status-pill"><i class="bi bi-check-circle-fill"></i> Sistema operativo</span>
+      </section>
+
+      <section aria-labelledby="kpi-title">
+        <h2 id="kpi-title" class="visually-hidden">Indicadores principales</h2>
+        <div class="row g-3 kpi-grid">
+          {% for kpi in demo.kpis %}
+            <div class="col-12 col-sm-6 col-xl-4"><article class="kpi-card{% if kpi.variant %} kpi-card--{{ kpi.variant }}{% endif %}"><span class="kpi-icon"><i class="bi {{ kpi.icon }}"></i></span><div><p>{{ kpi.label }}</p><strong>{{ kpi.value }}</strong><small>{{ kpi.detail }}</small></div></article></div>
+          {% endfor %}
+        </div>
+      </section>
+
+      <section class="data-card" aria-labelledby="expiry-title">
+        <div class="data-card-header"><div><span class="section-icon"><i class="bi bi-calendar-event"></i></span><div><h2 id="expiry-title">Productos próximos a vencer</h2><p>Materiales con vencimiento dentro de los próximos 30 días</p></div></div><a href="#">Ver inventario <i class="bi bi-arrow-right"></i></a></div>
+        <div class="table-responsive">
+          <table class="table align-middle mb-0"><thead><tr><th>Código</th><th>Producto</th><th>Lote</th><th>Stock</th><th>Fecha de vencimiento</th><th>Estado</th></tr></thead>
+            <tbody>{% for item in demo.productos_por_vencer %}<tr><td><strong>{{ item.codigo }}</strong></td><td>{{ item.producto }}</td><td>{{ item.lote }}</td><td>{{ item.stock }}</td><td>{{ item.fecha }}</td><td><span class="badge-status badge-status--{{ item.variant }}">{{ item.estado }}</span></td></tr>{% endfor %}</tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="data-card" aria-labelledby="requests-title">
+        <div class="data-card-header"><div><span class="section-icon"><i class="bi bi-clipboard-data"></i></span><div><h2 id="requests-title">Solicitudes pendientes</h2><p>Requerimientos a la espera de revisión o entrega</p></div></div><a href="#">Ver solicitudes <i class="bi bi-arrow-right"></i></a></div>
+        <div class="table-responsive">
+          <table class="table align-middle mb-0"><thead><tr><th>N° Solicitud</th><th>Solicitante</th><th>Fecha</th><th>Productos</th><th>Estado</th></tr></thead>
+            <tbody>{% for solicitud in demo.solicitudes %}<tr><td><strong>{{ solicitud.numero }}</strong></td><td>{{ solicitud.solicitante }}</td><td>{{ solicitud.fecha }}</td><td>{{ solicitud.productos }}</td><td><span class="badge-status badge-status--{{ solicitud.variant }}">{{ solicitud.estado }}</span></td></tr>{% endfor %}</tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+{% endblock %}

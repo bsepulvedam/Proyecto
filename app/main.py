@@ -1,10 +1,14 @@
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 
 from app.api.ordenes import router as ordenes_router
+from app.web.dashboard import router as dashboard_router
 
 
 app = FastAPI(title="Boliklor OT API", version="0.1.0")
 app.include_router(ordenes_router)
+app.include_router(dashboard_router)
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 
 @app.get("/")

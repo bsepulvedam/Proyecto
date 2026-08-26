@@ -72,6 +72,37 @@ VALID_FORM = [
 ]
 
 
+def persisted_order(order_id: int = 20, numero_ot: int = 20) -> SimpleNamespace:
+    product = SimpleNamespace(
+        id=1,
+        descripcion="Señalética vial",
+        unidad="UND",
+        cantidad="3.000",
+        medida_especifica="60 x 80 cm",
+    )
+    return SimpleNamespace(
+        id=order_id,
+        numero_ot=numero_ot,
+        comuna="Mostazal",
+        empresa_origen=None,
+        recibe=None,
+        fecha_pedido=date(2026, 8, 26),
+        fecha_entrega=date(2026, 8, 28),
+        fecha_finalizacion=None,
+        estado=None,
+        cliente="Cliente de prueba",
+        telefono=None,
+        correo="cliente@example.com",
+        recibido_por=None,
+        lugar_trabajo="Acceso principal",
+        estado_cliente=None,
+        referencia_pedido="PED-100",
+        responsable_boliklor=None,
+        observaciones="Instalación prioritaria",
+        productos=[product],
+    )
+
+
 class WorkOrderWebTests(unittest.TestCase):
     def test_new_work_order_form(self) -> None:
         status, headers, body = asyncio.run(
@@ -159,6 +190,54 @@ class WorkOrderWebTests(unittest.TestCase):
         self.assertIn("post", paths["/api/ordenes-trabajo"])
         self.assertIn("get", paths["/api/ordenes-trabajo"])
         self.assertIn("get", paths["/api/ordenes-trabajo/{orden_id}"])
+
+    def test_history_uses_listing_service_and_renders_orders(self) -> None:
+        order = persisted_order()
+        with (
+            patch("app.web.work_orders.listar_ordenes", return_value=[order]) as list_mock,
+            patch(
+                "app.services.orden_trabajo_service.numero_ot_sequence.next_value"
+            ) as next_value_mock,
+        ):
+            status, _, body = asyncio.run(
+                asgi_request("GET", "/ordenes-trabajo")
+            )
+        self.assertEqual(status, 200)
+        self.assertIn("Historial OT".encode(), body)
+        self.assertIn("OT N°20".encode(), body)
+        self.assertIn("Por definir".encode(), body)
+        self.assertIn(b"26/08/2026", body)
+        list_mock.assert_called_once()
+        next_value_mock.assert_not_called()
+
+    def test_existing_work_order_detail_uses_service(self) -> None:
+        order = persisted_order()
+        with (
+            patch("app.web.work_orders.obtener_orden", return_value=order) as get_mock,
+            patch(
+                "app.services.orden_trabajo_service.numero_ot_sequence.next_value"
+            ) as next_value_mock,
+        ):
+            status, _, body = asyncio.run(
+                asgi_request("GET", "/ordenes-trabajo/20")
+            )
+        self.assertEqual(status, 200)
+        self.assertIn("OT N°20".encode(), body)
+        self.assertIn("Cliente de prueba".encode(), body)
+        self.assertIn("Señalética vial".encode(), body)
+        self.assertIn("Instalación prioritaria".encode(), body)
+        self.assertIn("—".encode(), body)
+        get_mock.assert_called_once_with(unittest.mock.ANY, 20)
+        next_value_mock.assert_not_called()
+
+    def test_missing_work_order_returns_404(self) -> None:
+        with patch("app.web.work_orders.obtener_orden", return_value=None) as get_mock:
+            status, _, body = asyncio.run(
+                asgi_request("GET", "/ordenes-trabajo/999999")
+            )
+        self.assertEqual(status, 404)
+        self.assertIn("Orden de trabajo no encontrada".encode(), body)
+        get_mock.assert_called_once_with(unittest.mock.ANY, 999999)
 
 
 if __name__ == "__main__":

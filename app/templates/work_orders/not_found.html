@@ -1,0 +1,6 @@
+{% extends "base.html" %}
+{% block title %}OT no encontrada | BOLIKLOR{% endblock %}
+{% block body %}
+  {% include "partials/sidebar.html" %}
+  <div class="main-wrapper">{% include "partials/topbar.html" %}<main class="content not-found-shell"><section class="not-found-card"><span class="not-found-icon"><i class="bi bi-search"></i></span><p class="section-kicker">Error 404</p><h2>Orden de trabajo no encontrada</h2><p>La OT solicitada no existe o ya no está disponible.</p><div class="success-actions"><a class="btn btn-outline-dark" href="{{ url_for('history_work_orders') }}">Volver al historial</a><a class="btn btn-brand" href="{{ url_for('new_work_order') }}">Crear nueva OT</a><a class="btn btn-light" href="{{ url_for('dashboard') }}">Volver al dashboard</a></div></section></main></div>
+{% endblock %}

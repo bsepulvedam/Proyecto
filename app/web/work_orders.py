@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.database.session import get_db
 from app.schemas.orden_trabajo import OrdenTrabajoCreate, ProductoOT
-from app.services.orden_trabajo_service import crear_orden
+from app.services.orden_trabajo_service import crear_orden, listar_ordenes, obtener_orden
 
 
 logger = logging.getLogger(__name__)
@@ -33,6 +33,13 @@ def work_order_dates(today: date | None = None) -> tuple[date, date]:
 
 def format_date(value: date) -> str:
     return value.strftime("%d/%m/%Y")
+
+
+def format_optional_date(value: date | None) -> str:
+    return format_date(value) if value else "—"
+
+
+templates.env.filters["date_cl"] = format_optional_date
 
 
 def blank_product_row() -> dict[str, str]:
@@ -73,7 +80,7 @@ def page_context(**values: object) -> dict[str, object]:
     request_date, delivery_date = work_order_dates()
     context: dict[str, object] = {
         "demo": {"usuario": DEMO_USER},
-        "active_page": "work_orders",
+        "active_page": "work_orders_new",
         "page_title": "Nueva orden de trabajo",
         "page_eyebrow": "Órdenes de Trabajo",
         "allowed_comunas": ALLOWED_COMUNAS,
@@ -254,4 +261,47 @@ async def confirm_work_order(
         name="work_orders/success.html",
         context=page_context(created_order=created_order),
         status_code=status.HTTP_201_CREATED,
+    )
+
+
+@router.get("", response_class=HTMLResponse, name="history_work_orders")
+def history_work_orders(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
+    orders = listar_ordenes(db)
+    return templates.TemplateResponse(
+        request=request,
+        name="work_orders/history.html",
+        context=page_context(
+            orders=orders,
+            active_page="work_orders_history",
+            page_title="Historial de órdenes",
+            page_eyebrow="Órdenes de Trabajo",
+        ),
+    )
+
+
+@router.get("/{orden_id}", response_class=HTMLResponse, name="work_order_detail")
+def work_order_detail(
+    request: Request, orden_id: int, db: Session = Depends(get_db)
+) -> HTMLResponse:
+    order = obtener_orden(db, orden_id)
+    if order is None:
+        return templates.TemplateResponse(
+            request=request,
+            name="work_orders/not_found.html",
+            context=page_context(
+                active_page="work_orders_history",
+                page_title="OT no encontrada",
+                page_eyebrow="Órdenes de Trabajo",
+            ),
+            status_code=status.HTTP_404_NOT_FOUND,
+        )
+    return templates.TemplateResponse(
+        request=request,
+        name="work_orders/detail.html",
+        context=page_context(
+            order=order,
+            active_page="work_orders_detail",
+            page_title=f"OT N°{order.numero_ot}",
+            page_eyebrow="Detalle de orden de trabajo",
+        ),
     )

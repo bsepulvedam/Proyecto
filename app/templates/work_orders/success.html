@@ -4,6 +4,6 @@
   {% include "partials/sidebar.html" %}
   <div class="main-wrapper">
     {% include "partials/topbar.html" %}
-    <main class="content success-shell"><section class="success-card" aria-labelledby="success-title"><span class="success-icon"><i class="bi bi-check-lg"></i></span><p class="section-kicker">Orden de trabajo creada</p><h2 id="success-title">OT N°{{ created_order.numero_ot }}</h2><p>Orden de trabajo creada correctamente</p><div class="success-actions"><a class="btn btn-outline-dark" href="/api/ordenes-trabajo/{{ created_order.id }}">Ver detalle</a><a class="btn btn-brand" href="{{ url_for('new_work_order') }}">Crear nueva OT</a><a class="btn btn-light" href="{{ url_for('dashboard') }}">Volver al dashboard</a></div></section></main>
+    <main class="content success-shell"><section class="success-card" aria-labelledby="success-title"><span class="success-icon"><i class="bi bi-check-lg"></i></span><p class="section-kicker">Orden de trabajo creada</p><h2 id="success-title">OT N°{{ created_order.numero_ot }}</h2><p>Orden de trabajo creada correctamente</p><div class="success-actions"><a class="btn btn-outline-dark" href="{{ url_for('work_order_detail', orden_id=created_order.id) }}">Ver detalle</a><a class="btn btn-brand" href="{{ url_for('new_work_order') }}">Crear nueva OT</a><a class="btn btn-light" href="{{ url_for('dashboard') }}">Volver al dashboard</a></div></section></main>
   </div>
 {% endblock %}

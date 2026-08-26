@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Historial OT | BOLIKLOR{% endblock %}
+{% block body %}
+  {% include "partials/sidebar.html" %}
+  <div class="main-wrapper">
+    {% include "partials/topbar.html" %}
+    <main class="content">
+      <section class="history-heading">
+        <div><p class="section-kicker">Registro persistido</p><h2>Órdenes de trabajo</h2><p>Consulta las órdenes desde la más reciente hasta la más antigua.</p></div>
+        <a class="btn btn-brand" href="{{ url_for('new_work_order') }}"><i class="bi bi-plus-lg me-2"></i>Nueva OT</a>
+      </section>
+      <section class="data-card history-card" aria-labelledby="history-title">
+        <div class="data-card-header"><div><span class="section-icon"><i class="bi bi-clock-history"></i></span><div><h2 id="history-title">Historial OT</h2><p>{{ orders|length }} orden{% if orders|length != 1 %}es{% endif %} registrada{% if orders|length != 1 %}s{% endif %}</p></div></div></div>
+        {% if orders %}
+          <div class="table-responsive"><table class="table align-middle mb-0"><thead><tr><th>N° OT</th><th>Comuna</th><th>Fecha pedido</th><th>Fecha entrega</th><th>Estado</th><th>Líneas</th><th><span class="visually-hidden">Acción</span></th></tr></thead><tbody>
+            {% for order in orders %}<tr><td><strong>OT N°{{ order.numero_ot }}</strong></td><td>{{ order.comuna }}</td><td>{{ order.fecha_pedido|date_cl }}</td><td>{{ order.fecha_entrega|date_cl }}</td><td>{% if order.estado %}<span class="badge-status badge-status--info">{{ order.estado }}</span>{% else %}<span class="badge-status badge-status--neutral">Por definir</span>{% endif %}</td><td>{{ order.productos|length }}</td><td><a class="table-action" href="{{ url_for('work_order_detail', orden_id=order.id) }}">Ver detalle <i class="bi bi-arrow-right"></i></a></td></tr>{% endfor %}
+          </tbody></table></div>
+        {% else %}
+          <div class="empty-state"><span class="empty-state-icon"><i class="bi bi-clipboard2"></i></span><h3>Aún no hay órdenes de trabajo</h3><p>Cuando confirmes una OT aparecerá aquí.</p><a class="btn btn-brand" href="{{ url_for('new_work_order') }}">Crear primera OT</a></div>
+        {% endif %}
+      </section>
+    </main>
+  </div>
+{% endblock %}

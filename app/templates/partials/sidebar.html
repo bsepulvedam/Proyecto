@@ -14,7 +14,11 @@
     <a class="sidebar-link" href="#"><i class="bi bi-box-arrow-in-down"></i><span>Entradas</span></a>
     <a class="sidebar-link" href="#"><i class="bi bi-box-arrow-up"></i><span>Salidas</span></a>
     <a class="sidebar-link" href="#"><i class="bi bi-clipboard-check"></i><span>Solicitudes</span></a>
-    <a class="sidebar-link{% if active_page == 'work_orders' %} active{% endif %}" href="{{ url_for('new_work_order') }}"{% if active_page == 'work_orders' %} aria-current="page"{% endif %}><i class="bi bi-tools"></i><span>Órdenes de Trabajo</span></a>
+    <a class="sidebar-link{% if active_page in ['work_orders_new', 'work_orders_history', 'work_orders_detail'] %} active{% endif %}" href="{{ url_for('history_work_orders') }}"><i class="bi bi-tools"></i><span>Órdenes de Trabajo</span></a>
+    <div class="sidebar-subnav" aria-label="Opciones de órdenes de trabajo">
+      <a class="sidebar-sublink{% if active_page == 'work_orders_new' %} active{% endif %}" href="{{ url_for('new_work_order') }}">Nueva OT</a>
+      <a class="sidebar-sublink{% if active_page in ['work_orders_history', 'work_orders_detail'] %} active{% endif %}" href="{{ url_for('history_work_orders') }}">Historial OT</a>
+    </div>
     <a class="sidebar-link" href="#"><i class="bi bi-buildings"></i><span>Empresas</span></a>
     <a class="sidebar-link" href="#"><i class="bi bi-people"></i><span>Usuarios</span></a>
   </nav>

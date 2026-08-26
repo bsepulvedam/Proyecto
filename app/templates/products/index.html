@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Productos | BOLIKLOR{% endblock %}
+{% block body %}
+  {% include "partials/sidebar.html" %}
+  <div class="main-wrapper">
+    {% include "partials/topbar.html" %}
+    <main class="content">
+      <section class="history-heading"><div><p class="section-kicker">Catálogo maestro</p><h2>Productos</h2><p>Consulta los productos separados por empresa y sus unidades operativas.</p></div><div class="d-flex flex-wrap gap-2"><a class="btn btn-outline-dark" href="{{ url_for('product_import') }}"><i class="bi bi-file-earmark-spreadsheet me-2"></i>Vista previa Excel</a><span class="status-pill status-pill--pending"><i class="bi bi-eye"></i> Solo lectura</span></div></section>
+      <section class="data-card history-card" aria-labelledby="products-title">
+        <div class="data-card-header"><div><span class="section-icon"><i class="bi bi-box-seam"></i></span><div><h2 id="products-title">Catálogo de productos</h2><p>{{ products|length }} producto{% if products|length != 1 %}s{% endif %} registrado{% if products|length != 1 %}s{% endif %}</p></div></div></div>
+        {% if products %}
+          <div class="table-responsive"><table class="table products-table align-middle mb-0"><thead><tr><th>SKU</th><th>Empresa</th><th>Nombre</th><th>Unidad stock</th><th>Unidad contenido</th><th>Factor</th><th>Unidad costo</th><th>Stock mínimo</th><th>Tipo</th><th>Familia</th><th>Estado</th></tr></thead><tbody>
+            {% for product in products %}<tr><td><strong>{{ product.sku }}</strong></td><td><span class="company-chip">{{ product.empresa.codigo }}</span></td><td>{{ product.nombre }}</td><td>{{ product.unidad_stock.codigo }}</td><td>{{ product.unidad_contenido.codigo if product.unidad_contenido else '—' }}</td><td>{{ product.factor_conversion }}</td><td>{{ product.unidad_costo.codigo }}</td><td>{{ product.stock_minimo }}</td><td>{{ product.tipo or '—' }}</td><td>{{ product.familia or '—' }}</td><td>{% if product.activo %}<span class="badge-status badge-status--success">Activo</span>{% else %}<span class="badge-status badge-status--neutral">Inactivo</span>{% endif %}</td></tr>{% endfor %}
+          </tbody></table></div>
+        {% else %}
+          <div class="empty-state"><span class="empty-state-icon"><i class="bi bi-box-seam"></i></span><h3>Aún no hay productos</h3><p>El catálogo está preparado para incorporar los productos reales de Boliklor y ALM.</p></div>
+        {% endif %}
+      </section>
+    </main>
+  </div>
+{% endblock %}

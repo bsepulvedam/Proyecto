@@ -9,8 +9,16 @@
   </div>
   <nav class="sidebar-nav">
     <a class="sidebar-link{% if active_page == 'dashboard' %} active{% endif %}" href="{{ url_for('dashboard') }}"{% if active_page == 'dashboard' %} aria-current="page"{% endif %}><i class="bi bi-grid-1x2-fill"></i><span>Dashboard</span></a>
-    <a class="sidebar-link" href="#"><i class="bi bi-box-seam"></i><span>Productos</span></a>
-    <a class="sidebar-link" href="#"><i class="bi bi-boxes"></i><span>Inventario</span></a>
+    <a class="sidebar-link{% if active_page == 'products' %} active{% endif %}" href="{{ url_for('products') }}"{% if active_page == 'products' %} aria-current="page"{% endif %}><i class="bi bi-box-seam"></i><span>Productos</span></a>
+    <a class="sidebar-link{% if active_page == 'inventory' %} active{% endif %}" href="#"><i class="bi bi-boxes"></i><span>Inventario</span></a>
+    <div class="sidebar-subnav" aria-label="Opciones de inventario">
+      <a class="sidebar-sublink" href="#">Recepción</a>
+      <a class="sidebar-sublink" href="#">Despacho</a>
+      <a class="sidebar-sublink" href="#">Stock Boliklor</a>
+      <a class="sidebar-sublink" href="#">Stock ALM</a>
+      <a class="sidebar-sublink" href="#">Devoluciones</a>
+      <a class="sidebar-sublink" href="#">Costo inventario</a>
+    </div>
     <a class="sidebar-link" href="#"><i class="bi bi-box-arrow-in-down"></i><span>Entradas</span></a>
     <a class="sidebar-link" href="#"><i class="bi bi-box-arrow-up"></i><span>Salidas</span></a>
     <a class="sidebar-link" href="#"><i class="bi bi-clipboard-check"></i><span>Solicitudes</span></a>

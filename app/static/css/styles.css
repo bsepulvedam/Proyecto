@@ -151,12 +151,15 @@ a { color: inherit; }
 .correction-table { min-width: 1480px; }
 .conversion-value { color: var(--color-black); font-weight: 700; white-space: nowrap; }
 .correction-summary { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-.sidebar-subnav--families { max-height: 190px; overflow-y: auto; }
+.sidebar-subnav--families { max-height: 220px; overflow-y: auto; }
+.sidebar-family-menu summary { padding: .35rem .5rem; color: #aaa; cursor: pointer; font-size: .76rem; font-weight: 700; }
+.sidebar-family-menu > div { display: grid; gap: .1rem; margin-top: .15rem; }
+.sidebar-family-menu .sidebar-sublink { padding-left: .75rem; }
 .catalog-state { display: block; margin-top: .15rem; color: var(--color-gray-400); font-size: .62rem; }
 .validation-details { width: 190px; margin-top: .35rem; color: var(--color-gray-700); font-size: .68rem; white-space: normal; }
 .validation-details summary { cursor: pointer; font-weight: 700; }
 .validation-details p { margin: .25rem 0 0; }
-.catalog-filters { display: grid; grid-template-columns: minmax(220px, 2fr) repeat(3, minmax(140px, 1fr)) auto; align-items: end; gap: .75rem; }
+.catalog-filters { display: grid; grid-template-columns: minmax(220px, 2fr) repeat(4, minmax(135px, 1fr)) auto; align-items: end; gap: .75rem; }
 .catalog-filter-actions { display: flex; gap: .4rem; }
 .confirmation-shell { min-height: calc(100vh - 82px); display: grid; place-items: center; }
 .confirmation-card { width: min(100%, 700px); padding: clamp(1.5rem, 5vw, 3rem); border-top: 5px solid var(--color-yellow); border-radius: var(--radius-lg); background: var(--color-white); box-shadow: var(--shadow-soft); text-align: center; }

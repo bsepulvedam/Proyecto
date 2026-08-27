@@ -13,6 +13,7 @@ from app.models.producto import Producto
 from app.models.unidad_medida import UnidadMedida
 from app.schemas.inventario import ProductoCreate
 from app.services.product_import_service import ProductImportReport
+from app.web.products import _legacy_stock_states
 
 
 async def asgi_get(path: str) -> tuple[int, bytes]:
@@ -58,6 +59,16 @@ async def asgi_get(path: str) -> tuple[int, bytes]:
 
 
 class InventoryBaseTests(unittest.TestCase):
+    @staticmethod
+    def catalog_product(sku, company="BOLIKLOR", family="DEMARCACION", active=True):
+        unit_value = SimpleNamespace(codigo="UN")
+        return SimpleNamespace(
+            id=sku, sku=sku, empresa=SimpleNamespace(codigo=company), nombre=sku,
+            unidad_stock=unit_value, unidad_contenido=None,
+            factor_conversion=Decimal("1"), unidad_costo=unit_value,
+            stock_minimo=Decimal("1"), tipo="MATERIAL", familia=family, activo=active,
+        )
+
     def test_inventory_tables_and_constraints_are_declared(self) -> None:
         self.assertEqual(Empresa.__tablename__, "empresas")
         self.assertEqual(UnidadMedida.__tablename__, "unidades_medida")
@@ -97,6 +108,7 @@ class InventoryBaseTests(unittest.TestCase):
     def test_empty_products_page(self) -> None:
         with (
             patch("app.web.products.listar_productos", return_value=[]) as list_mock,
+            patch("app.web.products._legacy_stock_states", return_value={}),
             patch(
                 "app.services.orden_trabajo_service.numero_ot_sequence.next_value"
             ) as next_value_mock,
@@ -123,7 +135,10 @@ class InventoryBaseTests(unittest.TestCase):
             familia="Termoplástica",
             activo=True,
         )
-        with patch("app.web.products.listar_productos", return_value=[product]):
+        with (
+            patch("app.web.products.listar_productos", return_value=[product]),
+            patch("app.web.products._legacy_stock_states", return_value={"BOL-8": "REPONER STOCK"}),
+        ):
             status, body = asyncio.run(asgi_get("/productos"))
         self.assertEqual(status, 200)
         self.assertIn(b"BOL-8", body)
@@ -142,7 +157,10 @@ class InventoryBaseTests(unittest.TestCase):
                 stock_minimo=Decimal("1"), tipo="MATERIAL", familia="FAMILIA", activo=True)
             for index, sku in enumerate(("BOL-10", "BOL-2", "BOL-1"), start=1)
         ]
-        with patch("app.web.products.listar_productos", return_value=products):
+        with (
+            patch("app.web.products.listar_productos", return_value=products),
+            patch("app.web.products._legacy_stock_states", return_value={sku: "EN STOCK" for sku in ("BOL-10", "BOL-2", "BOL-1")}),
+        ):
             status, body = asyncio.run(asgi_get("/productos"))
         self.assertEqual(status, 200)
         self.assertLess(body.index(b"BOL-1"), body.index(b"BOL-2"))
@@ -160,13 +178,87 @@ class InventoryBaseTests(unittest.TestCase):
             item("BOL-2", "BOLIKLOR", "FERRETERIA"),
             item("ALM-1", "ALM", "DEMARCACION"),
         ]
-        with patch("app.web.products.listar_productos", return_value=products):
+        with (
+            patch("app.web.products.listar_productos", return_value=products),
+            patch("app.web.products._legacy_stock_states", return_value={sku: "EN STOCK" for sku in ("BOL-1", "BOL-2", "ALM-1")}),
+        ):
             status, body = asyncio.run(asgi_get("/productos?familia=DEMARCACION&empresa=BOLIKLOR"))
         self.assertEqual(status, 200)
         self.assertIn(b"BOL-1", body)
         self.assertNotIn(b"BOL-2", body)
         self.assertNotIn(b"ALM-1", body)
-        self.assertIn(b"?familia=DEMARCACION", body)
+        self.assertIn(b"empresa=BOLIKLOR&amp;familia=DEMARCACION", body)
+
+    def test_families_are_scoped_by_company(self) -> None:
+        products = [
+            self.catalog_product("BOL-1", "BOLIKLOR", "DEMARCACION"),
+            self.catalog_product("ALM-1", "ALM", "LIMPIEZA"),
+        ]
+        with (
+            patch("app.web.products.listar_productos", return_value=products),
+            patch("app.web.products._legacy_stock_states", return_value={}),
+        ):
+            _, boliklor_body = asyncio.run(asgi_get("/productos?empresa=BOLIKLOR"))
+            _, alm_body = asyncio.run(asgi_get("/productos?empresa=ALM"))
+        self.assertNotIn(b'value="LIMPIEZA"', boliklor_body)
+        self.assertIn(b'value="DEMARCACION"', boliklor_body)
+        self.assertIn(b'value="LIMPIEZA"', alm_body)
+        self.assertNotIn(b'value="DEMARCACION"', alm_body)
+
+    def test_product_status_filters_active_inactive_and_all(self) -> None:
+        products = [
+            self.catalog_product("BOL-1", active=True),
+            self.catalog_product("BOL-2", active=False),
+        ]
+        with (
+            patch("app.web.products.listar_productos", return_value=products),
+            patch("app.web.products._legacy_stock_states", return_value={}),
+        ):
+            _, all_body = asyncio.run(asgi_get("/productos"))
+            _, active_body = asyncio.run(asgi_get("/productos?estado_producto=ACTIVOS"))
+            _, inactive_body = asyncio.run(asgi_get("/productos?estado_producto=INACTIVOS"))
+        self.assertIn(b"BOL-1", all_body)
+        self.assertIn(b"BOL-2", all_body)
+        self.assertIn(b"BOL-1", active_body)
+        self.assertNotIn(b"BOL-2", active_body)
+        self.assertNotIn(b"BOL-1", inactive_body)
+        self.assertIn(b"BOL-2", inactive_body)
+
+    def test_stock_status_and_combined_filters(self) -> None:
+        products = [
+            self.catalog_product("BOL-1", family="DEMARCACION"),
+            self.catalog_product("BOL-2", family="DEMARCACION", active=False),
+            self.catalog_product("ALM-1", company="ALM", family="LIMPIEZA"),
+        ]
+        states = {"BOL-1": "EN STOCK", "BOL-2": "SIN STOCK", "ALM-1": "REPONER STOCK"}
+        with (
+            patch("app.web.products.listar_productos", return_value=products),
+            patch("app.web.products._legacy_stock_states", return_value=states),
+        ):
+            _, body = asyncio.run(asgi_get(
+                "/productos?empresa=BOLIKLOR&familia=DEMARCACION&estado_producto=INACTIVOS&estado_stock=SIN%20STOCK&q=BOL-2"
+            ))
+        self.assertIn(b"BOL-2", body)
+        self.assertIn(b"SIN STOCK", body)
+        self.assertNotIn(b"BOL-1", body)
+        self.assertNotIn(b"ALM-1", body)
+
+    def test_legacy_stock_state_boundaries(self) -> None:
+        report = SimpleNamespace(rows=[
+            SimpleNamespace(sku="BOL-1", stock_actual=Decimal("11"), stock_minimo=Decimal("10")),
+            SimpleNamespace(sku="BOL-2", stock_actual=Decimal("10"), stock_minimo=Decimal("10")),
+            SimpleNamespace(sku="BOL-3", stock_actual=Decimal("0"), stock_minimo=Decimal("10")),
+        ])
+        with (
+            patch("app.web.products.listar_unidades", return_value=[]),
+            patch("app.web.products.analyze_product_corrections", return_value=report),
+        ):
+            states = _legacy_stock_states(SimpleNamespace(), [])
+        self.assertEqual(states, {
+            "BOL-1": "EN STOCK",
+            "BOL-2": "REPONER STOCK",
+            "BOL-3": "SIN STOCK",
+        })
 
     def test_product_import_preview_route(self) -> None:
         report = ProductImportReport(

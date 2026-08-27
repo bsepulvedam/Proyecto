@@ -52,37 +52,79 @@ templates.env.filters["cl_number"] = format_cl_number
 router = APIRouter(tags=["web-productos"])
 
 
+def _legacy_stock_states(db: Session, products: list) -> dict[str, str]:
+    """Estado transitorio derivado del Excel; reemplazable por movimientos_stock."""
+    try:
+        report = analyze_product_corrections(
+            source_path=_source_path(),
+            products=products,
+            units=listar_unidades(db),
+        )
+    except (ProductImportError, OSError):
+        return {}
+    states = {}
+    for row in report.rows:
+        if row.stock_minimo is None:
+            continue
+        if row.stock_actual <= 0:
+            states[row.sku] = "SIN STOCK"
+        elif row.stock_actual <= row.stock_minimo:
+            states[row.sku] = "REPONER STOCK"
+        else:
+            states[row.sku] = "EN STOCK"
+    return states
+
+
 @router.get("/productos", response_class=HTMLResponse, name="products")
 def products(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
     all_products = listar_productos(db)
+    stock_states = _legacy_stock_states(db, all_products)
     selected_company = request.query_params.get("empresa", "").strip().upper()
-    selected_type = request.query_params.get("tipo", "").strip().upper()
     selected_family = request.query_params.get("familia", "").strip().upper()
+    selected_product_status = request.query_params.get("estado_producto", "TODOS").strip().upper()
+    selected_stock_status = request.query_params.get("estado_stock", "TODOS").strip().upper()
+    if selected_product_status not in {"TODOS", "ACTIVOS", "INACTIVOS"}:
+        selected_product_status = "TODOS"
+    if selected_stock_status not in {"TODOS", "EN STOCK", "REPONER STOCK", "SIN STOCK"}:
+        selected_stock_status = "TODOS"
     search = request.query_params.get("q", "").strip()
     filtered_products = sorted([
         product
         for product in all_products
         if (not selected_company or product.empresa.codigo == selected_company)
-        and (not selected_type or (product.tipo or "").upper() == selected_type)
         and (not selected_family or (product.familia or "").upper() == selected_family)
+        and (
+            selected_product_status == "TODOS"
+            or (selected_product_status == "ACTIVOS" and product.activo)
+            or (selected_product_status == "INACTIVOS" and not product.activo)
+        )
+        and (
+            selected_stock_status == "TODOS"
+            or stock_states.get(product.sku) == selected_stock_status
+        )
         and (
             not search
             or search.casefold() in product.sku.casefold()
             or search.casefold() in product.nombre.casefold()
         )
     ], key=product_natural_key)
-    families = sorted({product.familia for product in all_products if product.familia})
+    family_source = [
+        product for product in all_products
+        if not selected_company or product.empresa.codigo == selected_company
+    ]
+    families = sorted({product.familia for product in family_source if product.familia})
     return templates.TemplateResponse(
         request=request,
         name="products/index.html",
         context={
             "products": filtered_products,
             "companies": sorted({product.empresa.codigo for product in all_products}),
-            "types": sorted({product.tipo for product in all_products if product.tipo}),
             "families": families,
             "selected_company": selected_company,
-            "selected_type": selected_type,
             "selected_family": selected_family,
+            "selected_product_status": selected_product_status,
+            "selected_stock_status": selected_stock_status,
+            "stock_states": stock_states,
             "search": search,
             "demo": {
                 "usuario": {

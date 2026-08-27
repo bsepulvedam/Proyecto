@@ -10,9 +10,11 @@
   <nav class="sidebar-nav">
     <a class="sidebar-link{% if active_page == 'dashboard' %} active{% endif %}" href="{{ url_for('dashboard') }}"{% if active_page == 'dashboard' %} aria-current="page"{% endif %}><i class="bi bi-grid-1x2-fill"></i><span>Dashboard</span></a>
     <a class="sidebar-link{% if active_page == 'products' %} active{% endif %}" href="{{ url_for('products') }}"{% if active_page == 'products' %} aria-current="page"{% endif %}><i class="bi bi-box-seam"></i><span>Productos</span></a>
-    <div class="sidebar-subnav sidebar-subnav--families" aria-label="Familias de productos">
-      <a class="sidebar-sublink{% if active_page == 'products' and not selected_family|default('') %} active{% endif %}" href="{{ url_for('products') }}">Todos</a>
-      {% for family in families|default([]) %}<a class="sidebar-sublink{% if selected_family|default('') == family|upper %} active{% endif %}" href="{{ url_for('products') }}?familia={{ family|urlencode }}">{{ family }}</a>{% endfor %}
+    <div class="sidebar-subnav sidebar-subnav--families" aria-label="Opciones de productos">
+      <a class="sidebar-sublink{% if active_page == 'products' and not selected_family|default('') %} active{% endif %}" href="{{ url_for('products') }}{% if selected_company|default('') %}?empresa={{ selected_company|urlencode }}{% endif %}">Todos</a>
+      <details class="sidebar-family-menu"{% if selected_family|default('') %} open{% endif %}><summary>Familias</summary><div>
+        {% for family in families|default([]) %}<a class="sidebar-sublink{% if selected_family|default('') == family|upper %} active{% endif %}" href="{{ url_for('products') }}?{% if selected_company|default('') %}empresa={{ selected_company|urlencode }}&amp;{% endif %}familia={{ family|urlencode }}">{{ family }}</a>{% endfor %}
+      </div></details>
     </div>
     <a class="sidebar-link{% if active_page == 'inventory' %} active{% endif %}" href="#"><i class="bi bi-boxes"></i><span>Inventario</span></a>
     <div class="sidebar-subnav" aria-label="Opciones de inventario">

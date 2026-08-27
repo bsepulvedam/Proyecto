@@ -1,3 +1,5 @@
+import re
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
@@ -27,6 +29,22 @@ def listar_productos(db: Session) -> list[Producto]:
             joinedload(Producto.unidad_contenido),
             joinedload(Producto.unidad_costo),
         )
-        .order_by(Producto.empresa_id.asc(), Producto.nombre.asc(), Producto.id.asc())
+        .order_by(Producto.empresa_id.asc(), Producto.sku.asc(), Producto.id.asc())
     )
-    return list(db.scalars(consulta).all())
+    products = list(db.scalars(consulta).all())
+    return sorted(products, key=product_natural_key)
+
+
+def natural_sku_key(sku: str) -> tuple:
+    """Convierte BOL-10 en una clave posterior a BOL-9, no a BOL-1."""
+    return tuple(
+        int(part) if part.isdigit() else part.casefold()
+        for part in re.split(r"(\d+)", sku)
+        if part
+    )
+
+
+def product_natural_key(product: Producto) -> tuple:
+    company = product.empresa.codigo.upper()
+    company_order = {"BOLIKLOR": 0, "ALM": 1}.get(company, 2)
+    return company_order, natural_sku_key(product.sku), getattr(product, "id", 0)

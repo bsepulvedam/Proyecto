@@ -5,7 +5,7 @@
   <div class="main-wrapper">
     {% include "partials/topbar.html" %}
     <main class="content">
-      <section class="history-heading"><div><p class="section-kicker">Preparación de catálogo</p><h2>Vista previa de importación</h2><p>Fuente: <strong>{{ source_filename }}</strong>. El análisis no inserta ni modifica productos.</p></div><button class="btn btn-brand" type="button" disabled title="Disponible después de aprobar la validación"><i class="bi bi-upload me-2"></i>Importar productos</button></section>
+      <section class="history-heading"><div><p class="section-kicker">Preparación de catálogo</p><h2>Vista previa de importación</h2><p>Fuente: <strong>{{ source_filename }}</strong>. El análisis no inserta ni modifica productos.</p></div>{% if report and report.validos %}<a class="btn btn-brand" href="{{ url_for('confirm_product_import') }}"><i class="bi bi-upload me-2"></i>Importar {{ report.validos }} productos válidos</a>{% else %}<button class="btn btn-brand" type="button" disabled><i class="bi bi-upload me-2"></i>Sin productos válidos</button>{% endif %}</section>
       {% if error %}<div class="alert alert-danger" role="alert"><strong>No fue posible analizar el archivo.</strong><div class="mt-1">{{ error }}</div></div>{% endif %}
       {% if report %}
         <section class="import-summary" aria-label="Resumen de importación">

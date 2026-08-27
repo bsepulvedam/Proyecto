@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Confirmar importación | BOLIKLOR{% endblock %}
+{% block body %}
+  {% include "partials/sidebar.html" %}
+  <div class="main-wrapper">
+    {% include "partials/topbar.html" %}
+    <main class="content confirmation-shell">
+      <section class="confirmation-card" aria-labelledby="confirmation-title">
+        <span class="confirmation-icon"><i class="bi bi-shield-check"></i></span><p class="section-kicker">Confirmación requerida</p><h2 id="confirmation-title">Importar catálogo validado</h2>
+        {% if error %}<div class="alert alert-danger mt-3" role="alert">{{ error }}</div>{% elif report %}
+          <p>Se importarán únicamente los productos sin errores ni advertencias.</p>
+          <div class="confirmation-counts"><div><span>Productos válidos</span><strong>{{ report.validos }}</strong></div><div><span>Advertencias excluidas</span><strong>{{ report.con_advertencias }}</strong></div><div><span>Errores excluidos</span><strong>{{ report.con_errores }}</strong></div></div>
+          <div class="alert alert-warning text-start" role="note"><i class="bi bi-info-circle me-2"></i>Los SKU existentes no se duplicarán ni se sobrescribirán.</div>
+          <form method="post" action="{{ url_for('execute_product_import') }}" data-import-form><div class="confirmation-actions"><a class="btn btn-light" href="{{ url_for('product_import') }}">Cancelar</a><button class="btn btn-brand" type="submit" data-import-button><i class="bi bi-upload me-2"></i>Confirmar importación</button></div></form>
+        {% endif %}
+      </section>
+    </main>
+  </div>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', path='/js/product-import.js') }}"></script>{% endblock %}

@@ -1,13 +1,23 @@
 import tempfile
 import unittest
+from decimal import Decimal
 from pathlib import Path
 from types import SimpleNamespace
 
 from openpyxl import Workbook
+from sqlalchemy import create_engine, func, select
+from sqlalchemy.orm import Session
 
+from app.database.base import Base
+from app.models.empresa import Empresa
+from app.models.producto import Producto
+from app.models.unidad_medida import UnidadMedida
 from app.services.product_import_service import (
+    ProductImportReport,
+    ProductoImportRow,
     analyze_product_workbook,
     company_from_sku,
+    import_valid_products,
     normalize_sku,
 )
 
@@ -112,6 +122,104 @@ class ProductImportServiceTests(unittest.TestCase):
     def test_analysis_does_not_insert_or_mutate_existing_products(self) -> None:
         self.assertEqual(self.existing_products, [])
         self.assertEqual(len(self.report.rows), 8)
+
+
+class ProductImportPersistenceTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.engine = create_engine("sqlite+pysqlite:///:memory:")
+        Base.metadata.create_all(
+            self.engine,
+            tables=[Empresa.__table__, UnidadMedida.__table__, Producto.__table__],
+        )
+        self.db = Session(self.engine)
+        self.db.add_all(
+            [
+                Empresa(codigo="BOLIKLOR", nombre="BOLIKLOR"),
+                Empresa(codigo="ALM", nombre="ALM"),
+                UnidadMedida(codigo="UN", nombre="Unidad", permite_decimales=False),
+                UnidadMedida(codigo="KG", nombre="Kilogramo", permite_decimales=True),
+                UnidadMedida(codigo="SACO", nombre="Saco", permite_decimales=False),
+                UnidadMedida(codigo="KIT", nombre="Kit", permite_decimales=False),
+            ]
+        )
+        self.db.commit()
+
+    def tearDown(self) -> None:
+        self.db.close()
+        self.engine.dispose()
+
+    @staticmethod
+    def row(sku: str, company: str = "BOLIKLOR") -> ProductoImportRow:
+        return ProductoImportRow(
+            fila_excel=2,
+            sku=sku,
+            empresa=company,
+            nombre="PRODUCTO CONTROLADO",
+            descripcion=None,
+            unidad_stock="SACO",
+            unidad_contenido="KG",
+            factor_conversion=Decimal("25"),
+            unidad_costo="KG",
+            stock_minimo=Decimal("80"),
+            tipo="MATERIAL",
+            familia="DEMARCACION",
+        )
+
+    @staticmethod
+    def report(rows: list[ProductoImportRow]) -> ProductImportReport:
+        return ProductImportReport(
+            source_file="test.xlsx",
+            sheets_used=["Maestro de materiales", "Stock Boliklor", "Stock ALM"],
+            rows=rows,
+            unidades_detectadas=["KG", "SACO"],
+            unidades_no_registradas=[],
+            duplicados=[],
+            conflictos_maestro_stock=[],
+            productos_stock_sin_maestro=[],
+        )
+
+    def test_only_fully_valid_rows_are_imported_with_exact_values(self) -> None:
+        valid = self.row("BOL-OK")
+        warning = self.row("ALM-WARN", "ALM")
+        warning.advertencias.append("Revisión pendiente.")
+        invalid = self.row("BOL-ERROR")
+        invalid.errores.append("Unidad inconsistente.")
+
+        result = import_valid_products(self.db, self.report([valid, warning, invalid]))
+        products = list(self.db.scalars(select(Producto)).all())
+        self.assertEqual(result.importados, 1)
+        self.assertEqual(result.advertencias_pendientes, 1)
+        self.assertEqual(result.errores_pendientes, 1)
+        self.assertEqual(len(products), 1)
+        product = products[0]
+        self.assertEqual(product.sku, "BOL-OK")
+        self.assertEqual(product.empresa.codigo, "BOLIKLOR")
+        self.assertEqual(product.factor_conversion, Decimal("25.0000"))
+        self.assertEqual(product.stock_minimo, Decimal("80.000"))
+        self.assertEqual(product.unidad_stock.codigo, "SACO")
+        self.assertEqual(product.unidad_contenido.codigo, "KG")
+        self.assertEqual(product.unidad_costo.codigo, "KG")
+
+    def test_existing_sku_is_idempotent_and_not_overwritten(self) -> None:
+        report = self.report([self.row("BOL-IDEMPOTENT")])
+        first = import_valid_products(self.db, report)
+        second = import_valid_products(self.db, report)
+        count = self.db.scalar(select(func.count()).select_from(Producto))
+        self.assertEqual(first.importados, 1)
+        self.assertEqual(second.importados, 0)
+        self.assertEqual(second.existentes, 1)
+        self.assertEqual(count, 1)
+
+    def test_unresolvable_unit_is_not_created_or_imported(self) -> None:
+        unresolved = self.row("BOL-UNKNOWN")
+        unresolved.unidad_stock = "BALDE"
+        result = import_valid_products(self.db, self.report([unresolved]))
+        count = self.db.scalar(select(func.count()).select_from(Producto))
+        unit_count = self.db.scalar(select(func.count()).select_from(UnidadMedida))
+        self.assertEqual(result.importados, 0)
+        self.assertEqual(result.total_fallidos, 1)
+        self.assertEqual(count, 0)
+        self.assertEqual(unit_count, 4)
 
 
 if __name__ == "__main__":

@@ -10,6 +10,10 @@
   <nav class="sidebar-nav">
     <a class="sidebar-link{% if active_page == 'dashboard' %} active{% endif %}" href="{{ url_for('dashboard') }}"{% if active_page == 'dashboard' %} aria-current="page"{% endif %}><i class="bi bi-grid-1x2-fill"></i><span>Dashboard</span></a>
     <a class="sidebar-link{% if active_page == 'products' %} active{% endif %}" href="{{ url_for('products') }}"{% if active_page == 'products' %} aria-current="page"{% endif %}><i class="bi bi-box-seam"></i><span>Productos</span></a>
+    <div class="sidebar-subnav sidebar-subnav--families" aria-label="Familias de productos">
+      <a class="sidebar-sublink{% if active_page == 'products' and not selected_family|default('') %} active{% endif %}" href="{{ url_for('products') }}">Todos</a>
+      {% for family in families|default([]) %}<a class="sidebar-sublink{% if selected_family|default('') == family|upper %} active{% endif %}" href="{{ url_for('products') }}?familia={{ family|urlencode }}">{{ family }}</a>{% endfor %}
+    </div>
     <a class="sidebar-link{% if active_page == 'inventory' %} active{% endif %}" href="#"><i class="bi bi-boxes"></i><span>Inventario</span></a>
     <div class="sidebar-subnav" aria-label="Opciones de inventario">
       <a class="sidebar-sublink" href="#">Recepción</a>
@@ -19,9 +23,6 @@
       <a class="sidebar-sublink" href="#">Devoluciones</a>
       <a class="sidebar-sublink" href="#">Costo inventario</a>
     </div>
-    <a class="sidebar-link" href="#"><i class="bi bi-box-arrow-in-down"></i><span>Entradas</span></a>
-    <a class="sidebar-link" href="#"><i class="bi bi-box-arrow-up"></i><span>Salidas</span></a>
-    <a class="sidebar-link" href="#"><i class="bi bi-clipboard-check"></i><span>Solicitudes</span></a>
     <a class="sidebar-link{% if active_page in ['work_orders_new', 'work_orders_history', 'work_orders_detail'] %} active{% endif %}" href="{{ url_for('history_work_orders') }}"><i class="bi bi-tools"></i><span>Órdenes de Trabajo</span></a>
     <div class="sidebar-subnav" aria-label="Opciones de órdenes de trabajo">
       <a class="sidebar-sublink{% if active_page == 'work_orders_new' %} active{% endif %}" href="{{ url_for('new_work_order') }}">Nueva OT</a>

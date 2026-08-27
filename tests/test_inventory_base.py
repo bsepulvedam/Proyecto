@@ -1,5 +1,6 @@
 import asyncio
 import unittest
+from decimal import Decimal
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -28,6 +29,7 @@ async def asgi_get(path: str) -> tuple[int, bytes]:
     async def send(message: dict) -> None:
         messages.append(message)
 
+    route_path, _, query_string = path.partition("?")
     await app(
         {
             "type": "http",
@@ -35,9 +37,9 @@ async def asgi_get(path: str) -> tuple[int, bytes]:
             "http_version": "1.1",
             "method": "GET",
             "scheme": "http",
-            "path": path,
-            "raw_path": path.encode("ascii"),
-            "query_string": b"",
+            "path": route_path,
+            "raw_path": route_path.encode("ascii"),
+            "query_string": query_string.encode("utf-8"),
             "root_path": "",
             "headers": [(b"host", b"testserver")],
             "client": ("127.0.0.1", 50000),
@@ -114,7 +116,7 @@ class InventoryBaseTests(unittest.TestCase):
             nombre="Pintura termoplástica",
             unidad_stock=unit_stock,
             unidad_contenido=unit_content,
-            factor_conversion="25.0000",
+            factor_conversion=Decimal("25.0000"),
             unidad_costo=unit_content,
             stock_minimo="10.000",
             tipo="Pintura",
@@ -126,7 +128,45 @@ class InventoryBaseTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertIn(b"BOL-8", body)
         self.assertIn(b"BOLIKLOR", body)
-        self.assertIn(b"25.0000", body)
+        self.assertIn(b"25 KG / SACO", body)
+        self.assertNotIn(b"25.0000", body)
+        self.assertIn(b">10<", body)
+
+    def test_products_use_natural_sku_order(self) -> None:
+        company = SimpleNamespace(codigo="BOLIKLOR")
+        stock_unit = SimpleNamespace(codigo="UN")
+        products = [
+            SimpleNamespace(id=index, sku=sku, empresa=company, nombre=sku,
+                unidad_stock=stock_unit, unidad_contenido=None,
+                factor_conversion=Decimal("1"), unidad_costo=stock_unit,
+                stock_minimo=Decimal("1"), tipo="MATERIAL", familia="FAMILIA", activo=True)
+            for index, sku in enumerate(("BOL-10", "BOL-2", "BOL-1"), start=1)
+        ]
+        with patch("app.web.products.listar_productos", return_value=products):
+            status, body = asyncio.run(asgi_get("/productos"))
+        self.assertEqual(status, 200)
+        self.assertLess(body.index(b"BOL-1"), body.index(b"BOL-2"))
+        self.assertLess(body.index(b"BOL-2"), body.index(b"BOL-10"))
+
+    def test_family_and_company_filters_are_combined(self) -> None:
+        unit_value = SimpleNamespace(codigo="UN")
+        def item(sku, company, family):
+            return SimpleNamespace(id=sku, sku=sku, empresa=SimpleNamespace(codigo=company),
+                nombre=sku, unidad_stock=unit_value, unidad_contenido=None,
+                factor_conversion=Decimal("1"), unidad_costo=unit_value,
+                stock_minimo=Decimal("1"), tipo="MATERIAL", familia=family, activo=True)
+        products = [
+            item("BOL-1", "BOLIKLOR", "DEMARCACION"),
+            item("BOL-2", "BOLIKLOR", "FERRETERIA"),
+            item("ALM-1", "ALM", "DEMARCACION"),
+        ]
+        with patch("app.web.products.listar_productos", return_value=products):
+            status, body = asyncio.run(asgi_get("/productos?familia=DEMARCACION&empresa=BOLIKLOR"))
+        self.assertEqual(status, 200)
+        self.assertIn(b"BOL-1", body)
+        self.assertNotIn(b"BOL-2", body)
+        self.assertNotIn(b"ALM-1", body)
+        self.assertIn(b"?familia=DEMARCACION", body)
 
     def test_product_import_preview_route(self) -> None:
         report = ProductImportReport(
@@ -161,6 +201,9 @@ class InventoryBaseTests(unittest.TestCase):
 
     def test_existing_api_routes_remain_registered(self) -> None:
         paths = app.openapi()["paths"]
+        self.assertIn("post", paths["/productos/importar"])
+        self.assertIn("get", paths["/productos/corregir-importacion"])
+        self.assertNotIn("post", paths["/productos/corregir-importacion"])
         self.assertIn("post", paths["/api/ordenes-trabajo"])
         self.assertIn("get", paths["/api/ordenes-trabajo"])
         self.assertIn("get", paths["/api/ordenes-trabajo/{orden_id}"])

@@ -1,3 +1,4 @@
+import logging
 import re
 import unicodedata
 from zipfile import BadZipFile
@@ -8,6 +9,8 @@ from pathlib import Path
 
 from openpyxl import load_workbook
 from openpyxl.utils.exceptions import InvalidFileException
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from app.models.empresa import Empresa
 from app.models.producto import Producto
@@ -22,9 +25,14 @@ TYPO_MARKERS = {
     "PEGAMETO": "Posible typo: PEGAMETO / PEGAMENTO.",
     "INSTALCION": "Posible typo: INSTALCION / INSTALACION.",
 }
+logger = logging.getLogger(__name__)
 
 
 class ProductImportError(RuntimeError):
+    pass
+
+
+class ProductImportExecutionError(RuntimeError):
     pass
 
 
@@ -103,6 +111,20 @@ class ProductImportReport:
     @property
     def con_errores(self) -> int:
         return sum(row.validation_status == "ERROR" for row in self.rows)
+
+
+@dataclass
+class ProductImportResult:
+    analizados: int
+    importados: int
+    existentes: int
+    advertencias_pendientes: int
+    errores_pendientes: int
+    fallidos: list[str]
+
+    @property
+    def total_fallidos(self) -> int:
+        return len(self.fallidos)
 
 
 def default_source_path() -> Path:
@@ -225,6 +247,12 @@ def _existing_product_conflicts(
         conflicts.append("El factor de conversión difiere del producto existente.")
     if existing.unidad_costo.codigo != row.unidad_costo:
         conflicts.append("La unidad de costo difiere del producto existente.")
+    if existing.stock_minimo != row.stock_minimo:
+        conflicts.append("El stock mínimo difiere del producto existente.")
+    if normalize_text(existing.tipo) != row.tipo:
+        conflicts.append("El tipo difiere del producto existente.")
+    if normalize_text(existing.familia) != row.familia:
+        conflicts.append("La familia difiere del producto existente.")
     return conflicts
 
 
@@ -361,7 +389,6 @@ def analyze_product_workbook(
                     row.errores.extend(conflicts)
                 else:
                     row.catalog_status = "EXISTENTE"
-                    row.advertencias.append("El SKU ya existe y no será sobrescrito.")
             rows.append(row)
 
         master_skus = {row.sku for row in rows if row.sku}
@@ -378,3 +405,91 @@ def analyze_product_workbook(
         )
     finally:
         workbook.close()
+
+
+def import_valid_products(db: Session, report: ProductImportReport) -> ProductImportResult:
+    """Importa candidatos sin errores/advertencias en un único commit.
+
+    Las filas cuyo catálogo no pueda resolverse se excluyen con un motivo exacto.
+    Un fallo inesperado de infraestructura revierte todas las inserciones preparadas.
+    """
+
+    valid_rows = [row for row in report.rows if row.validation_status == "VALIDO"]
+    logger.info(
+        "Inicio importación de productos: analizados=%s validos=%s",
+        report.total,
+        len(valid_rows),
+    )
+    try:
+        companies = {company.codigo: company for company in db.scalars(select(Empresa)).all()}
+        units = {unit.codigo: unit for unit in db.scalars(select(UnidadMedida)).all()}
+        existing_skus = set(db.scalars(select(Producto.sku)).all())
+
+        imported = 0
+        existing = 0
+        failures: list[str] = []
+        for row in valid_rows:
+            if row.sku in existing_skus:
+                existing += 1
+                continue
+
+            company = companies.get(row.empresa or "")
+            stock_unit = units.get(row.unidad_stock or "")
+            content_unit = units.get(row.unidad_contenido) if row.unidad_contenido else None
+            cost_unit = units.get(row.unidad_costo or "")
+            unresolved: list[str] = []
+            if company is None:
+                unresolved.append(f"empresa {row.empresa or 'vacía'}")
+            if stock_unit is None:
+                unresolved.append(f"unidad stock {row.unidad_stock or 'vacía'}")
+            if row.unidad_contenido and content_unit is None:
+                unresolved.append(f"unidad contenido {row.unidad_contenido}")
+            if cost_unit is None:
+                unresolved.append(f"unidad costo {row.unidad_costo or 'vacía'}")
+            if unresolved:
+                message = f"{row.sku}: no se pudo resolver " + ", ".join(unresolved)
+                failures.append(message)
+                logger.warning(message)
+                continue
+
+            db.add(
+                Producto(
+                    empresa_id=company.id,
+                    sku=row.sku,
+                    nombre=row.nombre,
+                    descripcion=row.descripcion,
+                    unidad_stock_id=stock_unit.id,
+                    unidad_contenido_id=content_unit.id if content_unit else None,
+                    factor_conversion=row.factor_conversion,
+                    unidad_costo_id=cost_unit.id,
+                    stock_minimo=row.stock_minimo,
+                    tipo=row.tipo,
+                    familia=row.familia,
+                    activo=True,
+                )
+            )
+            existing_skus.add(row.sku)
+            imported += 1
+
+        db.commit()
+        result = ProductImportResult(
+            analizados=report.total,
+            importados=imported,
+            existentes=existing,
+            advertencias_pendientes=report.con_advertencias,
+            errores_pendientes=report.con_errores,
+            fallidos=failures,
+        )
+        logger.info(
+            "Fin importación de productos: importados=%s existentes=%s fallidos=%s",
+            result.importados,
+            result.existentes,
+            result.total_fallidos,
+        )
+        return result
+    except Exception as exc:
+        db.rollback()
+        logger.exception("Error técnico durante la importación de productos")
+        raise ProductImportExecutionError(
+            "No fue posible completar la importación de productos."
+        ) from exc

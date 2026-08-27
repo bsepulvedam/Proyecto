@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}Importación completada | BOLIKLOR{% endblock %}
+{% block body %}
+  {% include "partials/sidebar.html" %}
+  <div class="main-wrapper">
+    {% include "partials/topbar.html" %}
+    <main class="content success-shell"><section class="success-card import-result-card" aria-labelledby="result-title"><span class="success-icon"><i class="bi bi-check-lg"></i></span><p class="section-kicker">Importación completada</p><h2 id="result-title">{{ result.importados }} productos importados</h2><div class="result-list"><div><span>Productos analizados</span><strong>{{ result.analizados }}</strong></div><div><span>Importados</span><strong>{{ result.importados }}</strong></div><div><span>Ya existentes</span><strong>{{ result.existentes }}</strong></div><div><span>Advertencias pendientes</span><strong>{{ result.advertencias_pendientes }}</strong></div><div><span>Errores pendientes</span><strong>{{ result.errores_pendientes }}</strong></div><div><span>Fallidos durante importación</span><strong>{{ result.total_fallidos }}</strong></div></div>{% if result.fallidos %}<div class="alert alert-warning text-start"><strong>Productos no importados durante la resolución:</strong>{% for failure in result.fallidos %}<div>{{ failure }}</div>{% endfor %}</div>{% endif %}<div class="success-actions"><a class="btn btn-brand" href="{{ url_for('products') }}">Ver productos</a><a class="btn btn-outline-dark" href="{{ url_for('product_import') }}?estado=advertencias">Revisar pendientes</a><a class="btn btn-light" href="{{ url_for('dashboard') }}">Volver al dashboard</a></div></section></main>
+  </div>
+{% endblock %}

@@ -83,7 +83,9 @@ class Producto(Base):
     unidad_costo: Mapped["UnidadMedida"] = relationship(
         back_populates="productos_costo", foreign_keys=[unidad_costo_id]
     )
+    detalles_movimiento: Mapped[list["DetalleMovimientoInventario"]] = relationship(back_populates="producto")
 
 
 from app.models.empresa import Empresa  # noqa: E402,F401
 from app.models.unidad_medida import UnidadMedida  # noqa: E402,F401
+from app.models.movimiento_inventario import DetalleMovimientoInventario  # noqa: E402,F401

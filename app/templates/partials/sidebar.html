@@ -16,11 +16,12 @@
     </div>
     <a class="sidebar-link{% if active_page == 'inventory' %} active{% endif %}" href="#"><i class="bi bi-boxes"></i><span>Inventario</span></a>
     <div class="sidebar-subnav" aria-label="Opciones de inventario">
-      <a class="sidebar-sublink" href="#">Recepción</a>
+      <a class="sidebar-sublink{% if active_page == 'inventory_receipt' %} active{% endif %}" href="{{ url_for('inventory_receipt') }}">Recepción</a>
       <a class="sidebar-sublink" href="#">Despacho</a>
       <a class="sidebar-sublink" href="#">Stock Boliklor</a>
       <a class="sidebar-sublink" href="#">Stock ALM</a>
       <a class="sidebar-sublink" href="#">Devoluciones</a>
+      <a class="sidebar-sublink{% if active_page == 'inventory_movements' %} active{% endif %}" href="{{ url_for('inventory_movements') }}">Movimientos</a>
       <a class="sidebar-sublink" href="#">Costo inventario</a>
     </div>
     <a class="sidebar-link{% if active_page in ['work_orders_new', 'work_orders_history', 'work_orders_detail'] %} active{% endif %}" href="{{ url_for('history_work_orders') }}"><i class="bi bi-tools"></i><span>Órdenes de Trabajo</span></a>

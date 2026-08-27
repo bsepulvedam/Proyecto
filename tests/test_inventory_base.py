@@ -313,9 +313,24 @@ class InventoryBaseTests(unittest.TestCase):
         self.assertNotIn("productos_ot", migration)
         self.assertNotIn("numero_ot_seq", migration)
         self.assertIn('down_revision: str | None = "20260826_01"', migration)
+        movement_migration = Path(
+            "alembic/versions/20260827_03_fase_7_movimientos_inventario.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn('down_revision: str | None = "20260826_02"', movement_migration)
+        self.assertIn('"movimientos_inventario"', movement_migration)
+        self.assertIn('"detalle_movimientos_inventario"', movement_migration)
+        self.assertIn('"movimiento_inventario_seq"', movement_migration)
+        self.assertNotIn("ordenes_trabajo", movement_migration)
+        self.assertNotIn("productos_ot", movement_migration)
+        self.assertNotIn("numero_ot_seq", movement_migration)
 
     def test_existing_api_routes_remain_registered(self) -> None:
         paths = app.openapi()["paths"]
+        self.assertIn("get", paths["/api/productos/buscar"])
+        self.assertIn("get", paths["/inventario/recepcion"])
+        self.assertIn("post", paths["/inventario/recepcion"])
+        self.assertIn("get", paths["/inventario/movimientos"])
+        self.assertIn("get", paths["/inventario/movimientos/{movement_id}"])
         self.assertIn("post", paths["/productos/importar"])
         self.assertIn("get", paths["/productos/corregir-importacion"])
         self.assertNotIn("post", paths["/productos/corregir-importacion"])

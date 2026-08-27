@@ -52,8 +52,8 @@ templates.env.filters["cl_number"] = format_cl_number
 router = APIRouter(tags=["web-productos"])
 
 
-def _legacy_stock_states(db: Session, products: list) -> dict[str, str]:
-    """Estado transitorio derivado del Excel; reemplazable por movimientos_stock."""
+def _legacy_stock_values(db: Session, products: list) -> dict[str, Decimal]:
+    """Cantidad transitoria del Excel; reemplazable por movimientos_stock."""
     try:
         report = analyze_product_corrections(
             source_path=_source_path(),
@@ -62,31 +62,43 @@ def _legacy_stock_states(db: Session, products: list) -> dict[str, str]:
         )
     except (ProductImportError, OSError):
         return {}
-    states = {}
-    for row in report.rows:
-        if row.stock_minimo is None:
-            continue
-        if row.stock_actual <= 0:
-            states[row.sku] = "SIN STOCK"
-        elif row.stock_actual <= row.stock_minimo:
-            states[row.sku] = "REPONER STOCK"
-        else:
-            states[row.sku] = "EN STOCK"
-    return states
+    return {row.sku: row.stock_actual for row in report.rows}
+
+
+def _stock_state(stock: Decimal) -> str:
+    return "EN STOCK" if stock > 0 else "SIN STOCK"
+
+
+def _parse_stock_limit(value: str) -> Decimal | None:
+    if not value:
+        return None
+    try:
+        return Decimal(value.replace(",", "."))
+    except InvalidOperation:
+        raise ValueError("Los límites de stock deben ser números válidos.")
 
 
 @router.get("/productos", response_class=HTMLResponse, name="products")
 def products(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
     all_products = listar_productos(db)
-    stock_states = _legacy_stock_states(db, all_products)
+    stock_values = _legacy_stock_values(db, all_products)
+    stock_states = {sku: _stock_state(value) for sku, value in stock_values.items()}
     selected_company = request.query_params.get("empresa", "").strip().upper()
     selected_family = request.query_params.get("familia", "").strip().upper()
-    selected_product_status = request.query_params.get("estado_producto", "TODOS").strip().upper()
     selected_stock_status = request.query_params.get("estado_stock", "TODOS").strip().upper()
-    if selected_product_status not in {"TODOS", "ACTIVOS", "INACTIVOS"}:
-        selected_product_status = "TODOS"
-    if selected_stock_status not in {"TODOS", "EN STOCK", "REPONER STOCK", "SIN STOCK"}:
+    if selected_stock_status not in {"TODOS", "EN STOCK", "SIN STOCK"}:
         selected_stock_status = "TODOS"
+    stock_from_text = request.query_params.get("stock_desde", "").strip()
+    stock_to_text = request.query_params.get("stock_hasta", "").strip()
+    stock_filter_error = None
+    try:
+        stock_from = _parse_stock_limit(stock_from_text)
+        stock_to = _parse_stock_limit(stock_to_text)
+        if stock_from is not None and stock_to is not None and stock_from > stock_to:
+            raise ValueError("Stock desde no puede ser mayor que Stock hasta.")
+    except ValueError as exc:
+        stock_from = stock_to = None
+        stock_filter_error = str(exc)
     search = request.query_params.get("q", "").strip()
     filtered_products = sorted([
         product
@@ -94,14 +106,11 @@ def products(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
         if (not selected_company or product.empresa.codigo == selected_company)
         and (not selected_family or (product.familia or "").upper() == selected_family)
         and (
-            selected_product_status == "TODOS"
-            or (selected_product_status == "ACTIVOS" and product.activo)
-            or (selected_product_status == "INACTIVOS" and not product.activo)
-        )
-        and (
             selected_stock_status == "TODOS"
             or stock_states.get(product.sku) == selected_stock_status
         )
+        and (stock_from is None or stock_values.get(product.sku, Decimal("-Infinity")) >= stock_from)
+        and (stock_to is None or stock_values.get(product.sku, Decimal("Infinity")) <= stock_to)
         and (
             not search
             or search.casefold() in product.sku.casefold()
@@ -122,8 +131,11 @@ def products(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
             "families": families,
             "selected_company": selected_company,
             "selected_family": selected_family,
-            "selected_product_status": selected_product_status,
             "selected_stock_status": selected_stock_status,
+            "stock_from_text": stock_from_text,
+            "stock_to_text": stock_to_text,
+            "stock_filter_error": stock_filter_error,
+            "stock_values": stock_values,
             "stock_states": stock_states,
             "search": search,
             "demo": {

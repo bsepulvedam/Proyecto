@@ -13,7 +13,7 @@ from app.models.producto import Producto
 from app.models.unidad_medida import UnidadMedida
 from app.schemas.inventario import ProductoCreate
 from app.services.product_import_service import ProductImportReport
-from app.web.products import _legacy_stock_states
+from app.web.products import _stock_state
 
 
 async def asgi_get(path: str) -> tuple[int, bytes]:
@@ -108,7 +108,7 @@ class InventoryBaseTests(unittest.TestCase):
     def test_empty_products_page(self) -> None:
         with (
             patch("app.web.products.listar_productos", return_value=[]) as list_mock,
-            patch("app.web.products._legacy_stock_states", return_value={}),
+            patch("app.web.products._legacy_stock_values", return_value={}),
             patch(
                 "app.services.orden_trabajo_service.numero_ot_sequence.next_value"
             ) as next_value_mock,
@@ -137,7 +137,7 @@ class InventoryBaseTests(unittest.TestCase):
         )
         with (
             patch("app.web.products.listar_productos", return_value=[product]),
-            patch("app.web.products._legacy_stock_states", return_value={"BOL-8": "REPONER STOCK"}),
+            patch("app.web.products._legacy_stock_values", return_value={"BOL-8": Decimal("0")}),
         ):
             status, body = asyncio.run(asgi_get("/productos"))
         self.assertEqual(status, 200)
@@ -159,7 +159,7 @@ class InventoryBaseTests(unittest.TestCase):
         ]
         with (
             patch("app.web.products.listar_productos", return_value=products),
-            patch("app.web.products._legacy_stock_states", return_value={sku: "EN STOCK" for sku in ("BOL-10", "BOL-2", "BOL-1")}),
+            patch("app.web.products._legacy_stock_values", return_value={sku: Decimal("1") for sku in ("BOL-10", "BOL-2", "BOL-1")}),
         ):
             status, body = asyncio.run(asgi_get("/productos"))
         self.assertEqual(status, 200)
@@ -180,7 +180,7 @@ class InventoryBaseTests(unittest.TestCase):
         ]
         with (
             patch("app.web.products.listar_productos", return_value=products),
-            patch("app.web.products._legacy_stock_states", return_value={sku: "EN STOCK" for sku in ("BOL-1", "BOL-2", "ALM-1")}),
+            patch("app.web.products._legacy_stock_values", return_value={sku: Decimal("1") for sku in ("BOL-1", "BOL-2", "ALM-1")}),
         ):
             status, body = asyncio.run(asgi_get("/productos?familia=DEMARCACION&empresa=BOLIKLOR"))
         self.assertEqual(status, 200)
@@ -196,7 +196,7 @@ class InventoryBaseTests(unittest.TestCase):
         ]
         with (
             patch("app.web.products.listar_productos", return_value=products),
-            patch("app.web.products._legacy_stock_states", return_value={}),
+            patch("app.web.products._legacy_stock_values", return_value={}),
         ):
             _, boliklor_body = asyncio.run(asgi_get("/productos?empresa=BOLIKLOR"))
             _, alm_body = asyncio.run(asgi_get("/productos?empresa=ALM"))
@@ -205,24 +205,20 @@ class InventoryBaseTests(unittest.TestCase):
         self.assertIn(b'value="LIMPIEZA"', alm_body)
         self.assertNotIn(b'value="DEMARCACION"', alm_body)
 
-    def test_product_status_filters_active_inactive_and_all(self) -> None:
+    def test_active_filter_is_hidden_and_all_products_are_listed(self) -> None:
         products = [
             self.catalog_product("BOL-1", active=True),
             self.catalog_product("BOL-2", active=False),
         ]
         with (
             patch("app.web.products.listar_productos", return_value=products),
-            patch("app.web.products._legacy_stock_states", return_value={}),
+            patch("app.web.products._legacy_stock_values", return_value={}),
         ):
             _, all_body = asyncio.run(asgi_get("/productos"))
-            _, active_body = asyncio.run(asgi_get("/productos?estado_producto=ACTIVOS"))
-            _, inactive_body = asyncio.run(asgi_get("/productos?estado_producto=INACTIVOS"))
         self.assertIn(b"BOL-1", all_body)
         self.assertIn(b"BOL-2", all_body)
-        self.assertIn(b"BOL-1", active_body)
-        self.assertNotIn(b"BOL-2", active_body)
-        self.assertNotIn(b"BOL-1", inactive_body)
-        self.assertIn(b"BOL-2", inactive_body)
+        self.assertNotIn(b"estado_producto", all_body)
+        self.assertNotIn(b"Estado producto", all_body)
 
     def test_stock_status_and_combined_filters(self) -> None:
         products = [
@@ -230,13 +226,13 @@ class InventoryBaseTests(unittest.TestCase):
             self.catalog_product("BOL-2", family="DEMARCACION", active=False),
             self.catalog_product("ALM-1", company="ALM", family="LIMPIEZA"),
         ]
-        states = {"BOL-1": "EN STOCK", "BOL-2": "SIN STOCK", "ALM-1": "REPONER STOCK"}
+        values = {"BOL-1": Decimal("12"), "BOL-2": Decimal("0"), "ALM-1": Decimal("5")}
         with (
             patch("app.web.products.listar_productos", return_value=products),
-            patch("app.web.products._legacy_stock_states", return_value=states),
+            patch("app.web.products._legacy_stock_values", return_value=values),
         ):
             _, body = asyncio.run(asgi_get(
-                "/productos?empresa=BOLIKLOR&familia=DEMARCACION&estado_producto=INACTIVOS&estado_stock=SIN%20STOCK&q=BOL-2"
+                "/productos?empresa=BOLIKLOR&familia=DEMARCACION&estado_stock=SIN%20STOCK&q=BOL-2"
             ))
         self.assertIn(b"BOL-2", body)
         self.assertIn(b"SIN STOCK", body)
@@ -244,21 +240,48 @@ class InventoryBaseTests(unittest.TestCase):
         self.assertNotIn(b"ALM-1", body)
 
     def test_legacy_stock_state_boundaries(self) -> None:
-        report = SimpleNamespace(rows=[
-            SimpleNamespace(sku="BOL-1", stock_actual=Decimal("11"), stock_minimo=Decimal("10")),
-            SimpleNamespace(sku="BOL-2", stock_actual=Decimal("10"), stock_minimo=Decimal("10")),
-            SimpleNamespace(sku="BOL-3", stock_actual=Decimal("0"), stock_minimo=Decimal("10")),
-        ])
+        self.assertEqual(_stock_state(Decimal("0.001")), "EN STOCK")
+        self.assertEqual(_stock_state(Decimal("0")), "SIN STOCK")
+        self.assertEqual(_stock_state(Decimal("-1")), "SIN STOCK")
+
+    def test_stock_from_to_and_inclusive_range_filters(self) -> None:
+        products = [self.catalog_product(f"BOL-{index}") for index in (1, 2, 3)]
+        values = {"BOL-1": Decimal("5"), "BOL-2": Decimal("10"), "BOL-3": Decimal("20")}
         with (
-            patch("app.web.products.listar_unidades", return_value=[]),
-            patch("app.web.products.analyze_product_corrections", return_value=report),
+            patch("app.web.products.listar_productos", return_value=products),
+            patch("app.web.products._legacy_stock_values", return_value=values),
         ):
-            states = _legacy_stock_states(SimpleNamespace(), [])
-        self.assertEqual(states, {
-            "BOL-1": "EN STOCK",
-            "BOL-2": "REPONER STOCK",
-            "BOL-3": "SIN STOCK",
-        })
+            _, from_body = asyncio.run(asgi_get("/productos?stock_desde=10"))
+            _, to_body = asyncio.run(asgi_get("/productos?stock_hasta=10"))
+            _, range_body = asyncio.run(asgi_get("/productos?stock_desde=10&stock_hasta=20"))
+        self.assertNotIn(b"<strong>BOL-1</strong>", from_body)
+        self.assertIn(b"<strong>BOL-2</strong>", from_body)
+        self.assertIn(b"<strong>BOL-3</strong>", from_body)
+        self.assertIn(b"<strong>BOL-1</strong>", to_body)
+        self.assertIn(b"<strong>BOL-2</strong>", to_body)
+        self.assertNotIn(b"<strong>BOL-3</strong>", to_body)
+        self.assertNotIn(b"<strong>BOL-1</strong>", range_body)
+        self.assertIn(b"<strong>BOL-2</strong>", range_body)
+        self.assertIn(b"<strong>BOL-3</strong>", range_body)
+
+    def test_invalid_stock_range_is_reported(self) -> None:
+        products = [self.catalog_product("BOL-1")]
+        with (
+            patch("app.web.products.listar_productos", return_value=products),
+            patch("app.web.products._legacy_stock_values", return_value={"BOL-1": Decimal("5")}),
+        ):
+            _, invalid_body = asyncio.run(asgi_get("/productos?stock_desde=abc"))
+            _, inverted_body = asyncio.run(asgi_get("/productos?stock_desde=20&stock_hasta=10"))
+        self.assertIn("deben ser números válidos".encode(), invalid_body)
+        self.assertIn("no puede ser mayor".encode(), inverted_body)
+
+    def test_sidebar_uses_vertical_children_without_desktop_internal_scroll(self) -> None:
+        sidebar = Path("app/templates/partials/sidebar.html").read_text(encoding="utf-8")
+        styles = Path("app/static/css/styles.css").read_text(encoding="utf-8")
+        self.assertNotIn("<details", sidebar)
+        self.assertNotIn("sidebar-family-menu", sidebar)
+        self.assertIn(".sidebar-nav { flex: 1; padding:", styles)
+        self.assertNotIn(".sidebar-nav { flex: 1; overflow-y: auto", styles)
 
     def test_product_import_preview_route(self) -> None:
         report = ProductImportReport(

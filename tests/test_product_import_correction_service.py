@@ -77,11 +77,11 @@ class ProductImportCorrectionTests(unittest.TestCase):
     def test_required_product_examples(self):
         rows = {row.sku: row for row in self.report().rows}
         bol1 = rows["BOL-1"]
-        self.assertEqual((bol1.unidad_presentacion, bol1.stock_actual, bol1.stock_minimo, bol1.factor_conversion, bol1.unidad_costo, bol1.estado_stock), ("TINETA", 47, 10, 1, "TINETA", "STOCK ÓPTIMO"))
+        self.assertEqual((bol1.unidad_presentacion, bol1.stock_actual, bol1.stock_minimo, bol1.factor_conversion, bol1.unidad_costo, bol1.estado_stock), ("TINETA", 47, 10, 1, "TINETA", "EN STOCK"))
         bol8 = rows["BOL-8"]
-        self.assertEqual((bol8.unidad_presentacion, bol8.stock_actual, bol8.stock_minimo, bol8.factor_conversion, bol8.unidad_contenido, bol8.unidad_costo, bol8.estado_stock), ("SACO", 36, 80, 25, "KG", "KG", "REPONER STOCK"))
+        self.assertEqual((bol8.unidad_presentacion, bol8.stock_actual, bol8.stock_minimo, bol8.factor_conversion, bol8.unidad_contenido, bol8.unidad_costo, bol8.estado_stock), ("SACO", 36, 80, 25, "KG", "KG", "EN STOCK"))
         bol56 = rows["BOL-56"]
-        self.assertEqual((bol56.unidad_presentacion, bol56.stock_actual, bol56.stock_minimo, bol56.factor_conversion, bol56.unidad_contenido, bol56.unidad_costo, bol56.estado_stock), ("KG", 0, 10, 1, None, "KG", "REPONER STOCK"))
+        self.assertEqual((bol56.unidad_presentacion, bol56.stock_actual, bol56.stock_minimo, bol56.factor_conversion, bol56.unidad_contenido, bol56.unidad_costo, bol56.estado_stock), ("KG", 0, 10, 1, None, "KG", "SIN STOCK"))
         self.assertEqual(rows["BOL-10"].stock_actual, 79)
 
     def test_quantities_render_without_artificial_decimals(self):

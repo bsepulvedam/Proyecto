@@ -210,7 +210,7 @@ def analyze_product_corrections(source_path, products, units):
                 warnings.append("Unidad contenido no confirmada para esta conversión.")
 
             current_stock = legacy_stock.get(sku, Decimal("0"))
-            stock_state = None if minimum is None else ("REPONER STOCK" if current_stock <= minimum else "STOCK ÓPTIMO")
+            stock_state = "EN STOCK" if current_stock > 0 else "SIN STOCK"
             validation = "ERROR" if errors else "ADVERTENCIA" if warnings else "LISTO"
             rows.append(ProductCorrectionRow(
                 sku=sku, empresa=company, nombre=name,

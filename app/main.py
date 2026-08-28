@@ -8,11 +8,13 @@ from app.web.products import router as products_router
 from app.web.work_orders import router as work_orders_router
 from app.web.inventory import router as inventory_router
 from app.web.auth import router as auth_router
+from app.web.admin import router as admin_router
 from app.core.security import require_module, require_platform_access
 
 
 app = FastAPI(title="Boliklor OT API", version="0.1.0")
 app.include_router(auth_router)
+app.include_router(admin_router, dependencies=[Depends(require_module("ADMIN_ACCESS"))])
 app.include_router(ordenes_router, dependencies=[Depends(require_module("OT_ACCESS"))])
 app.include_router(productos_api_router, dependencies=[Depends(require_module("INVENTARIO_ACCESS"))])
 app.include_router(dashboard_router, dependencies=[Depends(require_platform_access)])

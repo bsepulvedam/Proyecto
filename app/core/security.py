@@ -53,18 +53,33 @@ def require_permission(permission: str):
     return dependency
 
 
+async def _validate_csrf(request: Request) -> None:
+    token = request.headers.get("x-csrf-token")
+    if not token:
+        form = parse_qs((await request.body()).decode("utf-8"), keep_blank_values=True)
+        token = form.get("csrf_token", [None])[0]
+    if not csrf_is_valid(request.state.user_session, token) or token != request.cookies.get(CSRF_COOKIE):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Token CSRF inválido")
+
+
+async def require_session_csrf(request: Request, db: Session = Depends(get_db)) -> Usuario:
+    user = await require_authenticated(request, db)
+    if request.method not in SAFE_METHODS:
+        await _validate_csrf(request)
+    return user
+
+
 async def require_platform_access(request: Request, db: Session = Depends(get_db)):
     if not auth_enforced():
         request.state.current_user = DEVELOPMENT_IDENTITY
         return DEVELOPMENT_IDENTITY
     user = await require_authenticated(request, db)
+    if user.debe_cambiar_password and request.url.path not in {"/cambiar-password", "/logout"}:
+        if request.url.path.startswith("/api/"):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Debes cambiar tu contraseña antes de continuar")
+        raise HTTPException(status_code=status.HTTP_303_SEE_OTHER, headers={"Location": "/cambiar-password"})
     if request.method not in SAFE_METHODS:
-        token = request.headers.get("x-csrf-token")
-        if not token:
-            form = parse_qs((await request.body()).decode("utf-8"), keep_blank_values=True)
-            token = form.get("csrf_token", [None])[0]
-        if not csrf_is_valid(request.state.user_session, token) or token != request.cookies.get(CSRF_COOKIE):
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Token CSRF inválido")
+        await _validate_csrf(request)
     return user
 
 

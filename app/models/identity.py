@@ -12,6 +12,7 @@ class Usuario(Base):
     username: Mapped[str] = mapped_column(String(320), nullable=False)
     password_hash: Mapped[str] = mapped_column(String(512), nullable=False)
     activo: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true", index=True)
+    debe_cambiar_password: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false", index=True)
     ultimo_acceso_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())

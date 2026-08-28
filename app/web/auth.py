@@ -9,9 +9,10 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from app.core.config import cookie_secure, session_hours
-from app.core.security import require_platform_access
+from app.core.security import require_authenticated, require_session_csrf
 from app.database.session import get_db
-from app.schemas.identity import LoginData
+from app.schemas.identity import LoginData, PasswordChangeData
+from app.services.identity_admin_service import change_password
 from app.services.auth_service import CSRF_COOKIE, LOGIN_CSRF_COOKIE, SESSION_COOKIE, authenticate_user, create_session, resolve_session, revoke_session
 
 
@@ -32,8 +33,9 @@ def _login_page(request: Request, error: str | None = None, status_code: int = 2
 
 @router.get("/login", response_class=HTMLResponse, name="login")
 def login_form(request: Request, db: Session = Depends(get_db)):
-    if resolve_session(db, request.cookies.get(SESSION_COOKIE)):
-        return RedirectResponse("/dashboard", status_code=status.HTTP_303_SEE_OTHER)
+    resolved = resolve_session(db, request.cookies.get(SESSION_COOKIE))
+    if resolved:
+        return RedirectResponse("/cambiar-password" if resolved[0].debe_cambiar_password else "/dashboard", status_code=status.HTTP_303_SEE_OTHER)
     return _login_page(request)
 
 
@@ -51,7 +53,7 @@ async def login_submit(request: Request, db: Session = Depends(get_db)):
     if user is None:
         return _login_page(request, "Usuario o contraseña incorrectos.", 401)
     credentials = create_session(db, user)
-    response = RedirectResponse("/dashboard", status_code=status.HTTP_303_SEE_OTHER)
+    response = RedirectResponse("/cambiar-password" if user.debe_cambiar_password else "/dashboard", status_code=status.HTTP_303_SEE_OTHER)
     max_age = session_hours() * 3600
     _set_cookie(response, SESSION_COOKIE, credentials.session_token, max_age)
     _set_cookie(response, CSRF_COOKIE, credentials.csrf_token, max_age)
@@ -60,9 +62,36 @@ async def login_submit(request: Request, db: Session = Depends(get_db)):
 
 
 @router.post("/logout", name="logout")
-def logout(request: Request, db: Session = Depends(get_db), user=Depends(require_platform_access)):
+def logout(request: Request, db: Session = Depends(get_db), user=Depends(require_session_csrf)):
     revoke_session(db, request.cookies.get(SESSION_COOKIE))
     response = RedirectResponse("/login", status_code=status.HTTP_303_SEE_OTHER)
     response.delete_cookie(SESSION_COOKIE, path="/")
     response.delete_cookie(CSRF_COOKIE, path="/")
     return response
+
+
+def _change_page(request: Request, user, error: str | None = None, success: bool = False, status_code: int = 200):
+    return templates.TemplateResponse(request=request, name="auth/change_password.html", context={
+        "user": user, "error": error, "success": success,
+    }, status_code=status_code)
+
+
+@router.get("/cambiar-password", response_class=HTMLResponse, name="change_password_form")
+def change_password_form(request: Request, user=Depends(require_authenticated)):
+    return _change_page(request, user)
+
+
+@router.post("/cambiar-password", response_class=HTMLResponse, name="change_password_submit")
+async def change_password_submit(request: Request, db: Session = Depends(get_db), user=Depends(require_session_csrf)):
+    form = parse_qs((await request.body()).decode("utf-8"), keep_blank_values=True)
+    try:
+        data = PasswordChangeData(
+            current_password=form.get("current_password", [""])[0],
+            new_password=form.get("new_password", [""])[0],
+            confirmation=form.get("confirmation", [""])[0],
+        )
+        change_password(db, user, data.current_password, data.new_password, data.confirmation, request.state.user_session.id)
+    except ValueError as exc:
+        message = str(exc)
+        return _change_page(request, user, message, status_code=422)
+    return RedirectResponse("/dashboard", status_code=status.HTTP_303_SEE_OTHER)

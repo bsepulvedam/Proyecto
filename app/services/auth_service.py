@@ -20,7 +20,7 @@ SESSION_COOKIE = "boliklor_session"
 CSRF_COOKIE = "boliklor_csrf"
 LOGIN_CSRF_COOKIE = "boliklor_login_csrf"
 ROLE_PERMISSIONS = {
-    "ADMIN": {"*", "INVENTARIO_ACCESS", "OT_ACCESS"},
+    "ADMIN": {"*", "ADMIN_ACCESS", "INVENTARIO_ACCESS", "OT_ACCESS"},
     "JEFATURA": {"ASISTENCIA_SUPERVISAR"},
     "TRABAJADOR": {"ASISTENCIA_PROPIA"},
 }

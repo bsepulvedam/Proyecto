@@ -171,6 +171,13 @@ a { color: inherit; }
 .initialization-quantity { min-width: 130px; }
 .product-master-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
 .product-master-actions { grid-column: 1 / -1; }
+.admin-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.admin-form .form-check, .admin-form .form-actions, .admin-form .alert { grid-column: 1 / -1; }
+.admin-actions { display: flex; flex-wrap: wrap; gap: .45rem; }
+.credential-card { width: min(100%, 680px); margin: 2rem auto; padding: 2rem; border-radius: var(--radius-lg); background: var(--color-white); box-shadow: var(--shadow-soft); }
+.credential-icon { width: 54px; height: 54px; display: grid; place-items: center; margin-bottom: 1rem; border-radius: 14px; background: rgba(244,196,0,.2); color: #846a00; font-size: 1.5rem; }
+.temporary-password { display: block; margin: .35rem 0 1rem; padding: 1rem; border: 2px dashed var(--color-yellow-dark); border-radius: 10px; background: var(--color-gray-50); font: 700 1.1rem/1.4 ui-monospace, Consolas, monospace; overflow-wrap: anywhere; }
+.login-title--compact { font-size: 1.8rem; letter-spacing: .02em; }
 .confirmation-shell { min-height: calc(100vh - 82px); display: grid; place-items: center; }
 .confirmation-card { width: min(100%, 700px); padding: clamp(1.5rem, 5vw, 3rem); border-top: 5px solid var(--color-yellow); border-radius: var(--radius-lg); background: var(--color-white); box-shadow: var(--shadow-soft); text-align: center; }
 .confirmation-card h2 { margin: 0; font-size: 1.6rem; font-weight: 800; }
@@ -193,6 +200,7 @@ a { color: inherit; }
 }
 
 @media (max-width: 575.98px) {
+  .admin-form { grid-template-columns: 1fr; }
   .topbar { height: 72px; }
   .topbar-eyebrow, .topbar-user span { display: none; }
   .welcome-panel { align-items: flex-start; flex-direction: column; }

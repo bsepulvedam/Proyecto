@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Acceso al prototipo del Sistema de Inventario de BOLIKLOR SpA">
+  <title>Iniciar sesión | BOLIKLOR</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="assets/css/styles.css" rel="stylesheet">
+</head>
+<body class="login-page">
+  <main class="login-shell">
+    <section class="login-card" aria-labelledby="login-title">
+      <div class="brand-logo brand-logo--login" aria-label="Área reservada para logo BOLIKLOR">
+        <span>LOGO</span>
+      </div>
+      <div class="text-center mb-4">
+        <h1 id="login-title" class="login-title">BOLIKLOR</h1>
+        <p class="login-subtitle">Sistema de Inventario</p>
+      </div>
+
+      <form id="login-form" action="dashboard.html" method="get">
+        <div class="mb-3">
+          <label for="username" class="form-label">Usuario</label>
+          <div class="input-group">
+            <span class="input-group-text"><i class="bi bi-person" aria-hidden="true"></i></span>
+            <input id="username" name="usuario" type="text" class="form-control" placeholder="Ingrese su usuario" autocomplete="username" required>
+          </div>
+        </div>
+        <div class="mb-4">
+          <label for="password" class="form-label">Contraseña</label>
+          <div class="input-group">
+            <span class="input-group-text"><i class="bi bi-lock" aria-hidden="true"></i></span>
+            <input id="password" name="contrasena" type="password" class="form-control" placeholder="Ingrese su contraseña" autocomplete="current-password" required>
+          </div>
+        </div>
+        <button type="submit" class="btn btn-brand w-100">
+          Iniciar sesión <i class="bi bi-arrow-right ms-2" aria-hidden="true"></i>
+        </button>
+      </form>
+      <p class="login-note">Acceso exclusivo para personal autorizado</p>
+    </section>
+  </main>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="assets/js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Dashboard del prototipo del Sistema de Inventario de BOLIKLOR SpA">
+  <title>Dashboard | BOLIKLOR</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="assets/css/styles.css" rel="stylesheet">
+</head>
+<body class="dashboard-page">
+  <div id="sidebar-backdrop" class="sidebar-backdrop" aria-hidden="true"></div>
+  <aside id="sidebar" class="sidebar" aria-label="Navegación principal">
+    <div class="sidebar-brand">
+      <div class="brand-logo brand-logo--sidebar" aria-label="Área reservada para logo BOLIKLOR"><span>LOGO</span></div>
+      <div><strong>BOLIKLOR</strong><small>Sistema de Inventario</small></div>
+      <button id="sidebar-close" class="icon-button d-lg-none ms-auto" type="button" aria-label="Cerrar menú">
+        <i class="bi bi-x-lg"></i>
+      </button>
+    </div>
+    <nav class="sidebar-nav">
+      <a class="sidebar-link active" href="#" aria-current="page"><i class="bi bi-grid-1x2-fill"></i><span>Dashboard</span></a>
+      <a class="sidebar-link" href="#"><i class="bi bi-box-seam"></i><span>Productos</span></a>
+      <a class="sidebar-link" href="#"><i class="bi bi-boxes"></i><span>Inventario</span></a>
+      <a class="sidebar-link" href="#"><i class="bi bi-box-arrow-in-down"></i><span>Entradas</span></a>
+      <a class="sidebar-link" href="#"><i class="bi bi-box-arrow-up"></i><span>Salidas</span></a>
+      <a class="sidebar-link" href="#"><i class="bi bi-clipboard-check"></i><span>Solicitudes</span></a>
+      <a class="sidebar-link" href="#"><i class="bi bi-tools"></i><span>Órdenes de Trabajo</span></a>
+      <a class="sidebar-link" href="#"><i class="bi bi-buildings"></i><span>Empresas</span></a>
+      <a class="sidebar-link" href="#"><i class="bi bi-people"></i><span>Usuarios</span></a>
+    </nav>
+    <div class="sidebar-user">
+      <span class="user-avatar"><i class="bi bi-person-fill"></i></span>
+      <div><strong>Camila Soto</strong><small>Encargada de bodega</small></div>
+    </div>
+  </aside>
+
+  <div class="main-wrapper">
+    <header class="topbar">
+      <button id="sidebar-open" class="icon-button d-lg-none" type="button" aria-controls="sidebar" aria-expanded="false" aria-label="Abrir menú">
+        <i class="bi bi-list"></i>
+      </button>
+      <div><span class="topbar-eyebrow">Resumen general</span><h1>Dashboard</h1></div>
+      <div class="topbar-user"><i class="bi bi-person-circle"></i><span>Camila Soto</span></div>
+    </header>
+
+    <main class="content">
+      <section class="welcome-panel">
+        <div><p class="section-kicker">Miércoles, 19 de agosto de 2026</p><h2>Buenos días, Camila</h2><p>Este es el estado actual de la bodega.</p></div>
+        <span class="status-pill"><i class="bi bi-check-circle-fill"></i> Sistema operativo</span>
+      </section>
+
+      <section aria-labelledby="kpi-title">
+        <h2 id="kpi-title" class="visually-hidden">Indicadores principales</h2>
+        <div class="row g-3 kpi-grid">
+          <div class="col-12 col-sm-6 col-xl-4"><article class="kpi-card"><span class="kpi-icon"><i class="bi bi-box-seam"></i></span><div><p>Productos registrados</p><strong>248</strong><small>12 nuevos este mes</small></div></article></div>
+          <div class="col-12 col-sm-6 col-xl-4"><article class="kpi-card kpi-card--warning"><span class="kpi-icon"><i class="bi bi-exclamation-triangle"></i></span><div><p>Productos con stock bajo</p><strong>14</strong><small>Requieren reposición</small></div></article></div>
+          <div class="col-12 col-sm-6 col-xl-4"><article class="kpi-card kpi-card--danger"><span class="kpi-icon"><i class="bi bi-calendar-x"></i></span><div><p>Productos próximos a vencer</p><strong>8</strong><small>En los próximos 30 días</small></div></article></div>
+          <div class="col-12 col-sm-6 col-xl-4"><article class="kpi-card kpi-card--info"><span class="kpi-icon"><i class="bi bi-clipboard-check"></i></span><div><p>Solicitudes pendientes</p><strong>6</strong><small>2 con prioridad alta</small></div></article></div>
+          <div class="col-12 col-sm-6 col-xl-4"><article class="kpi-card kpi-card--success"><span class="kpi-icon"><i class="bi bi-box-arrow-in-down"></i></span><div><p>Entradas de hoy</p><strong>23</strong><small>156 unidades recibidas</small></div></article></div>
+          <div class="col-12 col-sm-6 col-xl-4"><article class="kpi-card kpi-card--neutral"><span class="kpi-icon"><i class="bi bi-box-arrow-up"></i></span><div><p>Salidas de hoy</p><strong>17</strong><small>94 unidades entregadas</small></div></article></div>
+        </div>
+      </section>
+
+      <section class="data-card" aria-labelledby="expiry-title">
+        <div class="data-card-header"><div><span class="section-icon"><i class="bi bi-calendar-event"></i></span><div><h2 id="expiry-title">Productos próximos a vencer</h2><p>Materiales con vencimiento dentro de los próximos 30 días</p></div></div><a href="#">Ver inventario <i class="bi bi-arrow-right"></i></a></div>
+        <div class="table-responsive">
+          <table class="table align-middle mb-0"><thead><tr><th>Código</th><th>Producto</th><th>Lote</th><th>Stock</th><th>Fecha de vencimiento</th><th>Estado</th></tr></thead>
+            <tbody>
+              <tr><td><strong>PIN-AMA-01</strong></td><td>Pintura amarilla alto tráfico</td><td>LA-24081</td><td>12 gal.</td><td>25/08/2026</td><td><span class="badge-status badge-status--danger">Vence pronto</span></td></tr>
+              <tr><td><strong>PIN-BLA-04</strong></td><td>Pintura blanca exterior</td><td>LB-11926</td><td>8 gal.</td><td>02/09/2026</td><td><span class="badge-status badge-status--warning">Por vencer</span></td></tr>
+              <tr><td><strong>ACR-TRA-02</strong></td><td>Acrílico transparente 5 mm</td><td>AC-30514</td><td>24 un.</td><td>10/09/2026</td><td><span class="badge-status badge-status--warning">Por vencer</span></td></tr>
+              <tr><td><strong>SEN-REF-08</strong></td><td>Señalética reflectante</td><td>SR-08211</td><td>35 un.</td><td>17/09/2026</td><td><span class="badge-status badge-status--info">En seguimiento</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="data-card" aria-labelledby="requests-title">
+        <div class="data-card-header"><div><span class="section-icon"><i class="bi bi-clipboard-data"></i></span><div><h2 id="requests-title">Solicitudes pendientes</h2><p>Requerimientos a la espera de revisión o entrega</p></div></div><a href="#">Ver solicitudes <i class="bi bi-arrow-right"></i></a></div>
+        <div class="table-responsive">
+          <table class="table align-middle mb-0"><thead><tr><th>N° Solicitud</th><th>Solicitante</th><th>Fecha</th><th>Productos</th><th>Estado</th></tr></thead>
+            <tbody>
+              <tr><td><strong>SOL-2026-084</strong></td><td>Diego Muñoz</td><td>19/08/2026</td><td>5 productos</td><td><span class="badge-status badge-status--danger">Prioridad alta</span></td></tr>
+              <tr><td><strong>SOL-2026-081</strong></td><td>Paula Rojas</td><td>18/08/2026</td><td>3 productos</td><td><span class="badge-status badge-status--warning">En revisión</span></td></tr>
+              <tr><td><strong>SOL-2026-079</strong></td><td>Matías Vera</td><td>18/08/2026</td><td>7 productos</td><td><span class="badge-status badge-status--info">Aprobada</span></td></tr>
+              <tr><td><strong>SOL-2026-076</strong></td><td>Fernanda Silva</td><td>17/08/2026</td><td>2 productos</td><td><span class="badge-status badge-status--neutral">Pendiente</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="assets/js/app.js"></script>
+</body>
+</html>

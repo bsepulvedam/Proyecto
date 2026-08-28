@@ -34,3 +34,14 @@ def session_hours() -> int:
 
 def app_timezone_name() -> str:
     return os.getenv("APP_TIMEZONE", "America/Santiago").strip() or "America/Santiago"
+
+
+def justification_storage_dir() -> str:
+    return os.getenv("JUSTIFICATION_STORAGE_DIR", "storage/justificaciones").strip()
+
+
+def justification_max_bytes() -> int:
+    try:
+        return max(1, int(os.getenv("JUSTIFICATION_MAX_MB", "8"))) * 1024 * 1024
+    except ValueError:
+        return 8 * 1024 * 1024

@@ -13,7 +13,7 @@ from app.core.security import require_authenticated, require_session_csrf
 from app.database.session import get_db
 from app.schemas.identity import LoginData, PasswordChangeData
 from app.services.identity_admin_service import change_password
-from app.services.auth_service import CSRF_COOKIE, LOGIN_CSRF_COOKIE, SESSION_COOKIE, authenticate_user, create_session, resolve_session, revoke_session
+from app.services.auth_service import CSRF_COOKIE, LOGIN_CSRF_COOKIE, SESSION_COOKIE, authenticate_user, create_session, landing_path, resolve_session, revoke_session
 
 
 router = APIRouter(tags=["autenticacion"])
@@ -35,7 +35,7 @@ def _login_page(request: Request, error: str | None = None, status_code: int = 2
 def login_form(request: Request, db: Session = Depends(get_db)):
     resolved = resolve_session(db, request.cookies.get(SESSION_COOKIE))
     if resolved:
-        return RedirectResponse("/cambiar-password" if resolved[0].debe_cambiar_password else "/dashboard", status_code=status.HTTP_303_SEE_OTHER)
+        return RedirectResponse("/cambiar-password" if resolved[0].debe_cambiar_password else landing_path(resolved[0]), status_code=status.HTTP_303_SEE_OTHER)
     return _login_page(request)
 
 
@@ -53,7 +53,7 @@ async def login_submit(request: Request, db: Session = Depends(get_db)):
     if user is None:
         return _login_page(request, "Usuario o contraseña incorrectos.", 401)
     credentials = create_session(db, user)
-    response = RedirectResponse("/cambiar-password" if user.debe_cambiar_password else "/dashboard", status_code=status.HTTP_303_SEE_OTHER)
+    response = RedirectResponse("/cambiar-password" if user.debe_cambiar_password else landing_path(user), status_code=status.HTTP_303_SEE_OTHER)
     max_age = session_hours() * 3600
     _set_cookie(response, SESSION_COOKIE, credentials.session_token, max_age)
     _set_cookie(response, CSRF_COOKIE, credentials.csrf_token, max_age)
@@ -73,6 +73,7 @@ def logout(request: Request, db: Session = Depends(get_db), user=Depends(require
 def _change_page(request: Request, user, error: str | None = None, success: bool = False, status_code: int = 200):
     return templates.TemplateResponse(request=request, name="auth/change_password.html", context={
         "user": user, "error": error, "success": success,
+        "csrf_token": request.cookies.get(CSRF_COOKIE, ""),
     }, status_code=status_code)
 
 
@@ -94,4 +95,4 @@ async def change_password_submit(request: Request, db: Session = Depends(get_db)
     except ValueError as exc:
         message = str(exc)
         return _change_page(request, user, message, status_code=422)
-    return RedirectResponse("/dashboard", status_code=status.HTTP_303_SEE_OTHER)
+    return RedirectResponse(landing_path(user), status_code=status.HTTP_303_SEE_OTHER)

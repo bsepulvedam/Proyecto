@@ -1,4 +1,6 @@
 from pathlib import Path
+from datetime import datetime
+from decimal import Decimal, InvalidOperation
 from urllib.parse import parse_qs
 
 from fastapi import APIRouter, Depends, Request, status
@@ -8,7 +10,7 @@ from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from app.database.session import get_db
-from app.core.time import local_datetime
+from app.core.time import app_timezone, local_datetime
 from app.schemas.identity import AdminUserData, WorkerData
 from app.services.auth_service import IdentityError
 from app.services.identity_admin_service import (
@@ -16,6 +18,7 @@ from app.services.identity_admin_service import (
     list_workers, reset_password, save_worker, set_user_active,
 )
 from app.services.inventario_catalogo_service import listar_empresas
+from app.services.attendance_service import create_assignment, get_place, list_assignments, list_places, save_place
 
 
 router = APIRouter(prefix="/admin", tags=["administracion-identidad"])
@@ -29,6 +32,11 @@ async def _form(request: Request) -> dict[str, list[str]]:
 
 def _value(form, name):
     return form.get(name, [""])[0].strip()
+
+
+def _operational_datetime(value: str) -> datetime:
+    parsed = datetime.fromisoformat(value)
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=app_timezone())
 
 
 def _context(**values):
@@ -95,6 +103,66 @@ async def update_worker(request: Request, worker_id: int, db: Session = Depends(
 def users(request: Request, db: Session = Depends(get_db)):
     return templates.TemplateResponse(request=request, name="admin/users.html", context=_context(
         users=list_users(db), active_page="admin_users", page_title="Usuarios"))
+
+
+def _place_values(form):
+    def decimal(name):
+        return Decimal(_value(form, name).replace(",", ".")) if _value(form, name) else None
+    return {"nombre": _value(form, "nombre"), "tipo": _value(form, "tipo").upper(), "comuna": _value(form, "comuna") or None,
+        "direccion": _value(form, "direccion") or None, "latitud": decimal("latitud"), "longitud": decimal("longitud"),
+        "radio_metros": decimal("radio_metros"), "activo": "activo" in form}
+
+
+@router.get("/lugares", response_class=HTMLResponse, name="admin_places")
+def places(request: Request, db: Session = Depends(get_db)):
+    return templates.TemplateResponse(request=request, name="admin/places.html", context=_context(places=list_places(db), active_page="admin_places", page_title="Lugares de trabajo"))
+
+
+@router.get("/lugares/nuevo", response_class=HTMLResponse, name="admin_new_place")
+def new_place(request: Request):
+    return templates.TemplateResponse(request=request, name="admin/place_form.html", context=_context(place=None, error=None, active_page="admin_places", page_title="Nuevo lugar"))
+
+
+@router.post("/lugares", name="admin_create_place")
+async def create_place(request: Request, db: Session = Depends(get_db)):
+    form = await _form(request)
+    try: place = save_place(db, _place_values(form))
+    except (IdentityError, InvalidOperation, ValueError) as exc:
+        return templates.TemplateResponse(request=request, name="admin/place_form.html", context=_context(place=None, error=str(exc), active_page="admin_places", page_title="Nuevo lugar"), status_code=422)
+    return RedirectResponse(f"/admin/lugares/{place.id}", status_code=303)
+
+
+@router.get("/lugares/{place_id}", response_class=HTMLResponse, name="admin_place_detail")
+def place_detail(request: Request, place_id: int, db: Session = Depends(get_db)):
+    place = get_place(db, place_id)
+    if place is None: return HTMLResponse("Lugar no encontrado", status_code=404)
+    return templates.TemplateResponse(request=request, name="admin/place_form.html", context=_context(place=place, error=None, active_page="admin_places", page_title="Editar lugar"))
+
+
+@router.post("/lugares/{place_id}", name="admin_update_place")
+async def update_place(request: Request, place_id: int, db: Session = Depends(get_db)):
+    place, form = get_place(db, place_id), await _form(request)
+    if place is None: return HTMLResponse("Lugar no encontrado", status_code=404)
+    try: save_place(db, _place_values(form), place)
+    except (IdentityError, InvalidOperation, ValueError) as exc:
+        return templates.TemplateResponse(request=request, name="admin/place_form.html", context=_context(place=place, error=str(exc), active_page="admin_places", page_title="Editar lugar"), status_code=422)
+    return RedirectResponse(f"/admin/lugares/{place_id}", status_code=303)
+
+
+@router.get("/asignaciones", response_class=HTMLResponse, name="admin_assignments")
+def assignments(request: Request, db: Session = Depends(get_db)):
+    return templates.TemplateResponse(request=request, name="admin/assignments.html", context=_context(assignments=list_assignments(db), workers=list_workers(db), places=list_places(db), error=None, active_page="admin_assignments", page_title="Asignaciones de lugar"))
+
+
+@router.post("/asignaciones", name="admin_create_assignment")
+async def add_assignment(request: Request, db: Session = Depends(get_db)):
+    form = await _form(request)
+    try:
+        current = request.state.current_user
+        create_assignment(db, int(_value(form, "trabajador_id")), int(_value(form, "lugar_id")), _operational_datetime(_value(form, "desde")), _operational_datetime(_value(form, "hasta")) if _value(form, "hasta") else None, "activo" in form, current.id)
+    except (ValueError, IdentityError) as exc:
+        return templates.TemplateResponse(request=request, name="admin/assignments.html", context=_context(assignments=list_assignments(db), workers=list_workers(db), places=list_places(db), error=str(exc), active_page="admin_assignments", page_title="Asignaciones de lugar"), status_code=422)
+    return RedirectResponse("/admin/asignaciones", status_code=303)
 
 
 @router.get("/usuarios/nuevo", response_class=HTMLResponse, name="admin_new_user")

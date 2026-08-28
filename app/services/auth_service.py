@@ -135,3 +135,7 @@ def revoke_session(db: Session, session_token: str | None) -> None:
 def user_has_permission(user: Usuario, permission: str) -> bool:
     permissions = set().union(*(ROLE_PERMISSIONS.get(code, set()) for code in user.role_codes))
     return "*" in permissions or permission in permissions
+
+
+def landing_path(user: Usuario) -> str:
+    return "/mi-asistencia" if user.role_codes == {"TRABAJADOR"} else "/dashboard"

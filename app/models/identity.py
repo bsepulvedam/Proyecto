@@ -64,6 +64,8 @@ class Trabajador(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
     usuario: Mapped[Usuario | None] = relationship(back_populates="trabajador")
     empresa: Mapped["Empresa | None"] = relationship(back_populates="trabajadores")
+    asignaciones_lugar: Mapped[list["AsignacionTrabajadorLugar"]] = relationship(back_populates="trabajador")
+    justificaciones: Mapped[list["JustificacionInasistencia"]] = relationship(back_populates="trabajador")
 
 
 class SesionUsuario(Base):
@@ -81,3 +83,4 @@ class SesionUsuario(Base):
 
 
 from app.models.empresa import Empresa  # noqa: E402,F401
+from app.models.attendance import AsignacionTrabajadorLugar, JustificacionInasistencia  # noqa: E402,F401

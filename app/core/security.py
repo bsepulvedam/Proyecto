@@ -7,6 +7,8 @@ from sqlalchemy.orm import Session
 from app.core.config import auth_enforced
 from app.database.session import get_db
 from app.models.identity import Usuario
+from app.services.auth_service import IdentityError
+from app.services.attendance_service import worker_for_user
 from app.services.auth_service import CSRF_COOKIE, SESSION_COOKIE, csrf_is_valid, resolve_session, user_has_permission
 
 
@@ -56,8 +58,11 @@ def require_permission(permission: str):
 async def _validate_csrf(request: Request) -> None:
     token = request.headers.get("x-csrf-token")
     if not token:
-        form = parse_qs((await request.body()).decode("utf-8"), keep_blank_values=True)
-        token = form.get("csrf_token", [None])[0]
+        if request.headers.get("content-type", "").startswith("multipart/form-data"):
+            token = (await request.form()).get("csrf_token")
+        else:
+            form = parse_qs((await request.body()).decode("utf-8"), keep_blank_values=True)
+            token = form.get("csrf_token", [None])[0]
     if not csrf_is_valid(request.state.user_session, token) or token != request.cookies.get(CSRF_COOKIE):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Token CSRF inválido")
 
@@ -89,3 +94,10 @@ def require_module(permission: str):
             return user
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Acceso denegado")
     return dependency
+
+
+async def require_active_worker(user: Usuario = Depends(require_authenticated)):
+    try:
+        return worker_for_user(user)
+    except IdentityError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc

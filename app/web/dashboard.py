@@ -17,6 +17,9 @@ DEMO_USER = {"usuario": {"nombre": "Camila Soto", "rol": "Encargada de bodega"}}
 
 @router.get("/dashboard", response_class=HTMLResponse, name="dashboard")
 def dashboard(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
+    if request.state.current_user.role_codes == {"TRABAJADOR"}:
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse("/mi-asistencia", status_code=303)
     mode, rows = inventory_stock_rows(db)
     all_movements = list_movements(db)
     kpis = [

@@ -107,8 +107,8 @@ class IdentityAdminTests(unittest.TestCase):
         self.assertEqual(self.client.get("/dashboard").headers["location"], "/cambiar-password")
         change = self.client.post("/cambiar-password", {"csrf_token": self.csrf(), "current_password": temporary,
             "new_password": "Nueva-Clave-Personal-456", "confirmation": "Nueva-Clave-Personal-456"})
-        self.assertEqual(change.headers["location"], "/dashboard")
-        self.assertEqual(self.client.get("/dashboard").status_code, 200)
+        self.assertEqual(change.headers["location"], "/mi-asistencia")
+        self.assertEqual(self.client.get("/dashboard").status_code, 303)
         self.client.clear()
         self.assertEqual(self.login(self.client, "ana", temporary).status_code, 401)
         self.client.clear()

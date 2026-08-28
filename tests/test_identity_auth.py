@@ -178,7 +178,7 @@ class IdentityAuthTests(unittest.TestCase):
             self.client.clear()
             self.assertEqual(self.login(username).status_code, 303)
             self.assertEqual(self.client.get("/productos").status_code, expected)
-            self.assertEqual(self.client.get("/dashboard").status_code, 200)
+            self.assertEqual(self.client.get("/dashboard").status_code, 303 if username == "trabajador" else 200)
 
     def test_csrf_protects_existing_authenticated_post(self):
         self.create()

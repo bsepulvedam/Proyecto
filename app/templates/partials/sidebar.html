@@ -2,41 +2,51 @@
 <aside id="sidebar" class="sidebar" aria-label="Navegación principal">
   <div class="sidebar-brand">
     <div class="brand-logo brand-logo--sidebar" aria-label="Área reservada para logo BOLIKLOR"><span>LOGO</span></div>
-    <div><strong>BOLIKLOR</strong><small>Sistema de Inventario</small></div>
-    <button id="sidebar-close" class="icon-button d-lg-none ms-auto" type="button" aria-label="Cerrar menú">
-      <i class="bi bi-x-lg"></i>
-    </button>
+    <div><strong>BOLIKLOR</strong><small>Plataforma interna</small></div>
+    <button id="sidebar-close" class="icon-button d-lg-none ms-auto" type="button" aria-label="Cerrar menú"><i class="bi bi-x-lg"></i></button>
   </div>
   <nav class="sidebar-nav">
-    <a class="sidebar-link{% if active_page == 'dashboard' %} active{% endif %}" href="{{ url_for('dashboard') }}"{% if active_page == 'dashboard' %} aria-current="page"{% endif %}><i class="bi bi-grid-1x2-fill"></i><span>Dashboard</span></a>
-    {% if 'ADMIN' in request.state.current_user.role_codes %}<a class="sidebar-link{% if active_page == 'products' %} active{% endif %}" href="{{ url_for('products') }}"{% if active_page == 'products' %} aria-current="page"{% endif %}><i class="bi bi-box-seam"></i><span>Productos</span></a>
-    <div class="sidebar-subnav sidebar-subnav--families" aria-label="Opciones de productos">
-      <a class="sidebar-sublink{% if active_page == 'products' and not selected_family|default('') %} active{% endif %}" href="{{ url_for('products') }}{% if selected_company|default('') %}?empresa={{ selected_company|urlencode }}{% endif %}">Todos</a>
-      {% for family in families|default([]) %}<a class="sidebar-sublink{% if selected_family|default('') == family|upper %} active{% endif %}" href="{{ url_for('products') }}?{% if selected_company|default('') %}empresa={{ selected_company|urlencode }}&amp;{% endif %}familia={{ family|urlencode }}">{{ family }}</a>{% endfor %}
-    </div>
-    <a class="sidebar-link{% if active_page == 'inventory' %} active{% endif %}" href="#"><i class="bi bi-boxes"></i><span>Inventario</span></a>
-    <div class="sidebar-subnav" aria-label="Opciones de inventario">
-      <a class="sidebar-sublink{% if active_page == 'inventory_receipt' %} active{% endif %}" href="{{ url_for('inventory_receipt') }}">Recepción</a>
-      <a class="sidebar-sublink" href="#">Despacho</a>
-      <a class="sidebar-sublink{% if active_page == 'inventory_stock_boliklor' %} active{% endif %}" href="{{ url_for('inventory_stock_boliklor') }}">Stock Boliklor</a>
-      <a class="sidebar-sublink{% if active_page == 'inventory_stock_alm' %} active{% endif %}" href="{{ url_for('inventory_stock_alm') }}">Stock ALM</a>
-      <a class="sidebar-sublink" href="#">Devoluciones</a>
-      <a class="sidebar-sublink{% if active_page == 'inventory_movements' %} active{% endif %}" href="{{ url_for('inventory_movements') }}">Movimientos</a>
-      <a class="sidebar-sublink{% if active_page == 'inventory_costs' %} active{% endif %}" href="{{ url_for('inventory_costs') }}">Costo inventario</a>
-      <a class="sidebar-sublink sidebar-sublink--admin{% if active_page == 'inventory_initialization' %} active{% endif %}" href="{{ url_for('inventory_initialization') }}">Inicialización (admin)</a>
-    </div>
-    <a class="sidebar-link{% if active_page in ['work_orders_new', 'work_orders_history', 'work_orders_detail'] %} active{% endif %}" href="{{ url_for('history_work_orders') }}"><i class="bi bi-tools"></i><span>Órdenes de Trabajo</span></a>
-    <div class="sidebar-subnav" aria-label="Opciones de órdenes de trabajo">
-      <a class="sidebar-sublink{% if active_page == 'work_orders_new' %} active{% endif %}" href="{{ url_for('new_work_order') }}">Nueva OT</a>
-      <a class="sidebar-sublink{% if active_page in ['work_orders_history', 'work_orders_detail'] %} active{% endif %}" href="{{ url_for('history_work_orders') }}">Historial OT</a>
-    </div>
-    <a class="sidebar-link{% if active_page in ['admin_workers', 'admin_users'] %} active{% endif %}" href="{{ url_for('admin_workers') }}"><i class="bi bi-shield-lock"></i><span>Administración</span></a>
-    <div class="sidebar-subnav" aria-label="Administración de identidad"><a class="sidebar-sublink{% if active_page == 'admin_workers' %} active{% endif %}" href="{{ url_for('admin_workers') }}">Trabajadores</a><a class="sidebar-sublink{% if active_page == 'admin_users' %} active{% endif %}" href="{{ url_for('admin_users') }}">Usuarios</a></div>
+    {% if request.state.current_user.role_codes|length == 1 and 'TRABAJADOR' in request.state.current_user.role_codes %}
+      <a class="sidebar-link{% if active_page == 'attendance_days' %} active{% endif %}" href="{{ url_for('my_attendance') }}"><i class="bi bi-calendar3"></i><span>Días trabajados</span></a>
+      <a class="sidebar-link{% if active_page == 'attendance_register' %} active{% endif %}" href="{{ url_for('attendance_register') }}"><i class="bi bi-calendar-check"></i><span>Registrar asistencia</span></a>
+      <a class="sidebar-link{% if active_page == 'attendance_justifications' %} active{% endif %}" href="{{ url_for('my_justifications') }}"><i class="bi bi-file-earmark-text"></i><span>Justificar inasistencia</span></a>
+    {% else %}
+      <a class="sidebar-link{% if active_page == 'dashboard' %} active{% endif %}" href="{{ url_for('dashboard') }}"><i class="bi bi-grid-1x2-fill"></i><span>Dashboard</span></a>
+      {% if 'ADMIN' in request.state.current_user.role_codes %}
+        <a class="sidebar-link{% if active_page == 'products' %} active{% endif %}" href="{{ url_for('products') }}"><i class="bi bi-box-seam"></i><span>Productos</span></a>
+        <div class="sidebar-subnav sidebar-subnav--families" aria-label="Opciones de productos">
+          <a class="sidebar-sublink{% if active_page == 'products' and not selected_family|default('') %} active{% endif %}" href="{{ url_for('products') }}{% if selected_company|default('') %}?empresa={{ selected_company|urlencode }}{% endif %}">Todos</a>
+          {% for family in families|default([]) %}<a class="sidebar-sublink{% if selected_family|default('') == family|upper %} active{% endif %}" href="{{ url_for('products') }}?{% if selected_company|default('') %}empresa={{ selected_company|urlencode }}&amp;{% endif %}familia={{ family|urlencode }}">{{ family }}</a>{% endfor %}
+        </div>
+        <a class="sidebar-link{% if active_page == 'inventory' %} active{% endif %}" href="#"><i class="bi bi-boxes"></i><span>Inventario</span></a>
+        <div class="sidebar-subnav" aria-label="Opciones de inventario">
+          <a class="sidebar-sublink{% if active_page == 'inventory_receipt' %} active{% endif %}" href="{{ url_for('inventory_receipt') }}">Recepción</a>
+          <a class="sidebar-sublink" href="#">Despacho</a>
+          <a class="sidebar-sublink{% if active_page == 'inventory_stock_boliklor' %} active{% endif %}" href="{{ url_for('inventory_stock_boliklor') }}">Stock Boliklor</a>
+          <a class="sidebar-sublink{% if active_page == 'inventory_stock_alm' %} active{% endif %}" href="{{ url_for('inventory_stock_alm') }}">Stock ALM</a>
+          <a class="sidebar-sublink" href="#">Devoluciones</a>
+          <a class="sidebar-sublink{% if active_page == 'inventory_movements' %} active{% endif %}" href="{{ url_for('inventory_movements') }}">Movimientos</a>
+          <a class="sidebar-sublink{% if active_page == 'inventory_costs' %} active{% endif %}" href="{{ url_for('inventory_costs') }}">Costo inventario</a>
+          <a class="sidebar-sublink sidebar-sublink--admin{% if active_page == 'inventory_initialization' %} active{% endif %}" href="{{ url_for('inventory_initialization') }}">Inicialización (admin)</a>
+        </div>
+        <a class="sidebar-link{% if active_page in ['work_orders_new', 'work_orders_history', 'work_orders_detail'] %} active{% endif %}" href="{{ url_for('history_work_orders') }}"><i class="bi bi-tools"></i><span>Órdenes de Trabajo</span></a>
+        <div class="sidebar-subnav" aria-label="Opciones de órdenes de trabajo">
+          <a class="sidebar-sublink{% if active_page == 'work_orders_new' %} active{% endif %}" href="{{ url_for('new_work_order') }}">Nueva OT</a>
+          <a class="sidebar-sublink{% if active_page in ['work_orders_history', 'work_orders_detail'] %} active{% endif %}" href="{{ url_for('history_work_orders') }}">Historial OT</a>
+        </div>
+        <a class="sidebar-link{% if active_page in ['admin_workers','admin_users','admin_places','admin_assignments'] %} active{% endif %}" href="{{ url_for('admin_workers') }}"><i class="bi bi-shield-lock"></i><span>Administración</span></a>
+        <div class="sidebar-subnav" aria-label="Administración">
+          <a class="sidebar-sublink{% if active_page == 'admin_workers' %} active{% endif %}" href="{{ url_for('admin_workers') }}">Trabajadores</a>
+          <a class="sidebar-sublink{% if active_page == 'admin_users' %} active{% endif %}" href="{{ url_for('admin_users') }}">Usuarios</a>
+          <a class="sidebar-sublink{% if active_page == 'admin_places' %} active{% endif %}" href="{{ url_for('admin_places') }}">Lugares</a>
+          <a class="sidebar-sublink{% if active_page == 'admin_assignments' %} active{% endif %}" href="{{ url_for('admin_assignments') }}">Asignaciones</a>
+        </div>
+      {% endif %}
     {% endif %}
   </nav>
   <div class="sidebar-user">
     <span class="user-avatar"><i class="bi bi-person-fill"></i></span>
     <div><strong>{{ request.state.current_user.username }}</strong><small>{{ request.state.current_user.primary_role }}</small></div>
-    <form method="post" action="{{ url_for('logout') }}"><button class="icon-button" type="submit" aria-label="Cerrar sesión"><i class="bi bi-box-arrow-right"></i></button></form>
+    <form method="post" action="{{ url_for('logout') }}"><input type="hidden" name="csrf_token" value="{{ request.cookies.get('boliklor_csrf', '') }}"><button class="icon-button" type="submit" aria-label="Cerrar sesión"><i class="bi bi-box-arrow-right"></i></button></form>
   </div>
 </aside>

@@ -178,6 +178,18 @@ a { color: inherit; }
 .credential-icon { width: 54px; height: 54px; display: grid; place-items: center; margin-bottom: 1rem; border-radius: 14px; background: rgba(244,196,0,.2); color: #846a00; font-size: 1.5rem; }
 .temporary-password { display: block; margin: .35rem 0 1rem; padding: 1rem; border: 2px dashed var(--color-yellow-dark); border-radius: 10px; background: var(--color-gray-50); font: 700 1.1rem/1.4 ui-monospace, Consolas, monospace; overflow-wrap: anywhere; }
 .login-title--compact { font-size: 1.8rem; letter-spacing: .02em; }
+.attendance-hero { margin-bottom: 1.25rem; padding: 1.5rem; border-left: 5px solid var(--color-yellow); border-radius: var(--radius-md); background: var(--color-white); box-shadow: var(--shadow-soft); }
+.calendar-nav { display: flex; justify-content: space-between; padding: .8rem 1rem; background: white; border-radius: 10px; }
+.month-calendar { overflow: hidden; border-radius: var(--radius-md); background: white; }
+.calendar-weekdays, .calendar-week { display: grid; grid-template-columns: repeat(7, 1fr); }
+.calendar-weekdays span { padding: .65rem; background: var(--color-black); color: white; text-align: center; }
+.calendar-day { min-height: 100px; padding: .6rem; border: 1px solid var(--color-gray-100); }
+.calendar-day small { display: block; margin-top: .5rem; color: var(--color-gray-400); }
+.calendar-day.has-justification { background: #e7f1ff; color: #225b91; }
+.calendar-day.is-empty { background: var(--color-gray-50); }
+.shift-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; }
+.shift-card { padding: 1.5rem; border-radius: var(--radius-md); background: white; box-shadow: var(--shadow-soft); text-align: center; }
+.shift-card > i { color: var(--color-yellow-dark); font-size: 2rem; }
 .confirmation-shell { min-height: calc(100vh - 82px); display: grid; place-items: center; }
 .confirmation-card { width: min(100%, 700px); padding: clamp(1.5rem, 5vw, 3rem); border-top: 5px solid var(--color-yellow); border-radius: var(--radius-lg); background: var(--color-white); box-shadow: var(--shadow-soft); text-align: center; }
 .confirmation-card h2 { margin: 0; font-size: 1.6rem; font-weight: 800; }
@@ -201,6 +213,9 @@ a { color: inherit; }
 
 @media (max-width: 575.98px) {
   .admin-form { grid-template-columns: 1fr; }
+  .shift-grid { grid-template-columns: 1fr; }
+  .calendar-day { min-height: 66px; padding: .3rem; }
+  .calendar-day small { font-size: .6rem; }
   .topbar { height: 72px; }
   .topbar-eyebrow, .topbar-user span { display: none; }
   .welcome-panel { align-items: flex-start; flex-direction: column; }

@@ -6,6 +6,12 @@ from sqlalchemy.orm import Session, joinedload
 from app.models.empresa import Empresa
 from app.models.producto import Producto
 from app.models.unidad_medida import UnidadMedida
+from app.schemas.inventario import ProductoCreate
+from sqlalchemy.exc import IntegrityError
+
+
+class CatalogError(ValueError):
+    pass
 
 
 def listar_empresas(db: Session) -> list[Empresa]:
@@ -48,3 +54,27 @@ def product_natural_key(product: Producto) -> tuple:
     company = product.empresa.codigo.upper()
     company_order = {"BOLIKLOR": 0, "ALM": 1}.get(company, 2)
     return company_order, natural_sku_key(product.sku), getattr(product, "id", 0)
+
+
+def crear_producto(db: Session, data: ProductoCreate) -> Producto:
+    if db.get(Empresa, data.empresa_id) is None:
+        raise CatalogError("Empresa no válida.")
+    unit_ids = {data.unidad_stock_id, data.unidad_costo_id}
+    if data.unidad_contenido_id:
+        unit_ids.add(data.unidad_contenido_id)
+    if len(list(db.scalars(select(UnidadMedida).where(UnidadMedida.id.in_(unit_ids))).all())) != len(unit_ids):
+        raise CatalogError("Una o más unidades no son válidas.")
+    values = data.model_dump()
+    values["sku"] = data.sku.strip().upper()
+    values["nombre"] = data.nombre.strip().upper()
+    values["tipo"] = data.tipo.strip().upper() if data.tipo else None
+    values["familia"] = data.familia.strip().upper() if data.familia else None
+    product = Producto(**values)
+    try:
+        db.add(product)
+        db.commit()
+        db.refresh(product)
+        return product
+    except IntegrityError as exc:
+        db.rollback()
+        raise CatalogError("El SKU ya existe en el catálogo.") from exc

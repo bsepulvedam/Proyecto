@@ -35,8 +35,8 @@ class UnidadMedidaRead(UnidadMedidaCreate):
 
 class ProductoCreate(BaseModel):
     empresa_id: int
-    sku: str
-    nombre: str
+    sku: str = Field(min_length=1, max_length=100)
+    nombre: str = Field(min_length=1, max_length=250)
     descripcion: str | None = None
     unidad_stock_id: int
     unidad_contenido_id: int | None = None

@@ -1,0 +1,1 @@
+"""Comandos administrativos explícitos."""

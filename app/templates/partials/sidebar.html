@@ -9,7 +9,7 @@
   </div>
   <nav class="sidebar-nav">
     <a class="sidebar-link{% if active_page == 'dashboard' %} active{% endif %}" href="{{ url_for('dashboard') }}"{% if active_page == 'dashboard' %} aria-current="page"{% endif %}><i class="bi bi-grid-1x2-fill"></i><span>Dashboard</span></a>
-    <a class="sidebar-link{% if active_page == 'products' %} active{% endif %}" href="{{ url_for('products') }}"{% if active_page == 'products' %} aria-current="page"{% endif %}><i class="bi bi-box-seam"></i><span>Productos</span></a>
+    {% if 'ADMIN' in request.state.current_user.role_codes %}<a class="sidebar-link{% if active_page == 'products' %} active{% endif %}" href="{{ url_for('products') }}"{% if active_page == 'products' %} aria-current="page"{% endif %}><i class="bi bi-box-seam"></i><span>Productos</span></a>
     <div class="sidebar-subnav sidebar-subnav--families" aria-label="Opciones de productos">
       <a class="sidebar-sublink{% if active_page == 'products' and not selected_family|default('') %} active{% endif %}" href="{{ url_for('products') }}{% if selected_company|default('') %}?empresa={{ selected_company|urlencode }}{% endif %}">Todos</a>
       {% for family in families|default([]) %}<a class="sidebar-sublink{% if selected_family|default('') == family|upper %} active{% endif %}" href="{{ url_for('products') }}?{% if selected_company|default('') %}empresa={{ selected_company|urlencode }}&amp;{% endif %}familia={{ family|urlencode }}">{{ family }}</a>{% endfor %}
@@ -18,11 +18,12 @@
     <div class="sidebar-subnav" aria-label="Opciones de inventario">
       <a class="sidebar-sublink{% if active_page == 'inventory_receipt' %} active{% endif %}" href="{{ url_for('inventory_receipt') }}">Recepción</a>
       <a class="sidebar-sublink" href="#">Despacho</a>
-      <a class="sidebar-sublink" href="#">Stock Boliklor</a>
-      <a class="sidebar-sublink" href="#">Stock ALM</a>
+      <a class="sidebar-sublink{% if active_page == 'inventory_stock_boliklor' %} active{% endif %}" href="{{ url_for('inventory_stock_boliklor') }}">Stock Boliklor</a>
+      <a class="sidebar-sublink{% if active_page == 'inventory_stock_alm' %} active{% endif %}" href="{{ url_for('inventory_stock_alm') }}">Stock ALM</a>
       <a class="sidebar-sublink" href="#">Devoluciones</a>
       <a class="sidebar-sublink{% if active_page == 'inventory_movements' %} active{% endif %}" href="{{ url_for('inventory_movements') }}">Movimientos</a>
-      <a class="sidebar-sublink" href="#">Costo inventario</a>
+      <a class="sidebar-sublink{% if active_page == 'inventory_costs' %} active{% endif %}" href="{{ url_for('inventory_costs') }}">Costo inventario</a>
+      <a class="sidebar-sublink sidebar-sublink--admin{% if active_page == 'inventory_initialization' %} active{% endif %}" href="{{ url_for('inventory_initialization') }}">Inicialización (admin)</a>
     </div>
     <a class="sidebar-link{% if active_page in ['work_orders_new', 'work_orders_history', 'work_orders_detail'] %} active{% endif %}" href="{{ url_for('history_work_orders') }}"><i class="bi bi-tools"></i><span>Órdenes de Trabajo</span></a>
     <div class="sidebar-subnav" aria-label="Opciones de órdenes de trabajo">
@@ -31,9 +32,11 @@
     </div>
     <a class="sidebar-link" href="#"><i class="bi bi-buildings"></i><span>Empresas</span></a>
     <a class="sidebar-link" href="#"><i class="bi bi-people"></i><span>Usuarios</span></a>
+    {% endif %}
   </nav>
   <div class="sidebar-user">
     <span class="user-avatar"><i class="bi bi-person-fill"></i></span>
-    <div><strong>{{ demo.usuario.nombre }}</strong><small>{{ demo.usuario.rol }}</small></div>
+    <div><strong>{{ request.state.current_user.username }}</strong><small>{{ request.state.current_user.primary_role }}</small></div>
+    <form method="post" action="{{ url_for('logout') }}"><button class="icon-button" type="submit" aria-label="Cerrar sesión"><i class="bi bi-box-arrow-right"></i></button></form>
   </div>
 </aside>

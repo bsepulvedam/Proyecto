@@ -1,6 +1,18 @@
 "use strict";
 
 document.addEventListener("DOMContentLoaded", () => {
+  const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+  if (csrfToken) {
+    document.querySelectorAll('form[method="post" i]').forEach((form) => {
+      if (form.querySelector('input[name="csrf_token"]')) return;
+      const input = document.createElement("input");
+      input.type = "hidden";
+      input.name = "csrf_token";
+      input.value = csrfToken;
+      form.appendChild(input);
+    });
+  }
+
   const sidebar = document.querySelector("#sidebar");
   const openButton = document.querySelector("#sidebar-open");
   const closeButton = document.querySelector("#sidebar-close");

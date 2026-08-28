@@ -28,7 +28,9 @@ class Empresa(Base):
 
     productos: Mapped[list["Producto"]] = relationship(back_populates="empresa")
     movimientos_inventario: Mapped[list["MovimientoInventario"]] = relationship(back_populates="empresa")
+    trabajadores: Mapped[list["Trabajador"]] = relationship(back_populates="empresa")
 
 
 from app.models.producto import Producto  # noqa: E402,F401
 from app.models.movimiento_inventario import MovimientoInventario  # noqa: E402,F401
+from app.models.identity import Trabajador  # noqa: E402,F401

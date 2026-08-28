@@ -1,5 +1,6 @@
 import logging
 from collections import defaultdict
+from datetime import date
 from decimal import Decimal
 
 from sqlalchemy import Sequence, func, select
@@ -91,11 +92,27 @@ def create_receipt(db: Session, data: RecepcionCreate) -> MovimientoInventario:
         raise
 
 
-def list_movements(db: Session) -> list[MovimientoInventario]:
+def list_movements(db: Session, empresa_id: int | None = None, tipo: str = "", fecha_desde: date | None = None, fecha_hasta: date | None = None, search: str = "") -> list[MovimientoInventario]:
     query = select(MovimientoInventario).options(
-        joinedload(MovimientoInventario.empresa), selectinload(MovimientoInventario.detalles)
-    ).order_by(MovimientoInventario.created_at.desc(), MovimientoInventario.id.desc())
-    return list(db.scalars(query).all())
+        joinedload(MovimientoInventario.empresa),
+        selectinload(MovimientoInventario.detalles).joinedload(DetalleMovimientoInventario.producto),
+    )
+    if empresa_id is not None:
+        query = query.where(MovimientoInventario.empresa_id == empresa_id)
+    if tipo:
+        query = query.where(MovimientoInventario.tipo == tipo.upper())
+    if fecha_desde is not None:
+        query = query.where(MovimientoInventario.fecha >= fecha_desde)
+    if fecha_hasta is not None:
+        query = query.where(MovimientoInventario.fecha <= fecha_hasta)
+    movements = list(db.scalars(query.order_by(MovimientoInventario.created_at.desc(), MovimientoInventario.id.desc())).all())
+    term = search.strip().casefold()
+    if not term:
+        return movements
+    return [movement for movement in movements if term in movement.numero_documento.casefold()
+        or term in (movement.guia_despacho or "").casefold()
+        or term in (movement.referencia or "").casefold()
+        or any(term in line.producto.sku.casefold() for line in movement.detalles)]
 
 
 def get_movement(db: Session, movement_id: int) -> MovimientoInventario | None:

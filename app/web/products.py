@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 from decimal import Decimal, InvalidOperation
+from urllib.parse import parse_qs
 
 from fastapi import APIRouter, Depends, Request, status
 from fastapi.responses import HTMLResponse
@@ -13,7 +14,11 @@ from app.services.inventario_catalogo_service import (
     listar_productos,
     listar_unidades,
     product_natural_key,
+    crear_producto,
+    CatalogError,
 )
+from app.schemas.inventario import ProductoCreate
+from pydantic import ValidationError
 from app.services.product_import_service import (
     ProductImportError,
     ProductImportExecutionError,
@@ -50,6 +55,46 @@ def format_cl_number(value: object) -> str:
 templates.env.filters["cl_number"] = format_cl_number
 
 router = APIRouter(tags=["web-productos"])
+
+
+async def _product_form(request: Request):
+    return parse_qs((await request.body()).decode(), keep_blank_values=True)
+
+
+def _field(form, name):
+    return form.get(name, [""])[0].strip()
+
+
+def _new_product_context(db, **values):
+    context = {"empresas": listar_empresas(db), "unidades": listar_unidades(db), "error": None,
+        "demo": {"usuario": {"nombre": "Camila Soto", "rol": "Encargada de bodega"}},
+        "active_page": "products", "page_title": "Nuevo producto", "page_eyebrow": "Catálogo maestro"}
+    context.update(values)
+    return context
+
+
+@router.get("/productos/nuevo", response_class=HTMLResponse, name="new_product")
+def new_product(request: Request, db: Session = Depends(get_db)):
+    return templates.TemplateResponse(request=request, name="products/new.html", context=_new_product_context(db))
+
+
+@router.post("/productos/nuevo", response_class=HTMLResponse, name="create_product")
+async def create_product(request: Request, db: Session = Depends(get_db)):
+    form = await _product_form(request)
+    try:
+        data = ProductoCreate(
+            empresa_id=int(_field(form, "empresa_id")), sku=_field(form, "sku"), nombre=_field(form, "nombre"),
+            unidad_stock_id=int(_field(form, "unidad_stock_id")),
+            unidad_contenido_id=int(_field(form, "unidad_contenido_id")) if _field(form, "unidad_contenido_id") else None,
+            factor_conversion=Decimal(_field(form, "factor_conversion").replace(",", ".")),
+            unidad_costo_id=int(_field(form, "unidad_costo_id")),
+            stock_minimo=Decimal(_field(form, "stock_minimo").replace(",", ".")),
+            tipo=_field(form, "tipo") or None, familia=_field(form, "familia") or None,
+        )
+        product = crear_producto(db, data)
+    except (ValueError, InvalidOperation, ValidationError, CatalogError) as exc:
+        return templates.TemplateResponse(request=request, name="products/new.html", context=_new_product_context(db, error=str(exc), form=form), status_code=422)
+    return templates.TemplateResponse(request=request, name="products/new_success.html", context=_new_product_context(db, product=product), status_code=201)
 
 
 def _legacy_stock_values(db: Session, products: list) -> dict[str, Decimal]:

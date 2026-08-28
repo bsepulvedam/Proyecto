@@ -5,7 +5,7 @@
   <div class="main-wrapper">
     {% include "partials/topbar.html" %}
     <main class="content">
-      <section class="history-heading"><div><p class="section-kicker">Catálogo maestro</p><h2>Productos</h2><p>Consulta por empresa, familia y presentación. El stock transaccional aún no está implementado.</p></div><div class="d-flex flex-wrap gap-2"><a class="btn btn-outline-dark" href="{{ url_for('product_import_correction') }}"><i class="bi bi-file-earmark-spreadsheet me-2"></i>Stock según Excel</a><span class="status-pill status-pill--pending"><i class="bi bi-eye"></i> Solo lectura</span></div></section>
+      <section class="history-heading"><div><p class="section-kicker">Catálogo maestro</p><h2>Productos</h2><p>Consulta por empresa, familia y presentación.</p></div><div class="d-flex flex-wrap gap-2"><a class="btn btn-brand" href="{{ url_for('new_product') }}">Nuevo producto</a><a class="btn btn-outline-dark" href="{{ url_for('product_import_correction') }}">Stock según Excel</a></div></section>
       <form class="catalog-filters form-card" method="get" action="{{ url_for('products') }}">
         <div><label class="field-label" for="product-search">Buscar</label><input id="product-search" class="form-control" type="search" name="q" value="{{ search }}" placeholder="SKU o nombre"></div>
         <div><label class="field-label" for="company-filter">Empresa</label><select id="company-filter" class="form-select" name="empresa"><option value="">Todas</option>{% for company in companies %}<option value="{{ company }}"{% if selected_company == company %} selected{% endif %}>{{ company }}</option>{% endfor %}</select></div>

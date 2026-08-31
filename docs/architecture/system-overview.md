@@ -10,7 +10,7 @@
 
 ## Gaps
 
-[DEUDA_TECNICA] Ownership de trabajador no se refleja en el empaquetado. Configuración no está validada centralmente al arranque. No existen auditoría empresarial, observabilidad ni pipeline.
+[DEUDA_TECNICA] Ownership de trabajador no se refleja en el empaquetado. [IMPLEMENTADO] La configuración crítica de autenticación se valida al componer la aplicación; otras variables todavía no tienen validación central completa. No existen auditoría empresarial, observabilidad ni pipeline.
 
 ## Next steps
 

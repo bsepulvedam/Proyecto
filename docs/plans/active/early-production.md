@@ -2,7 +2,7 @@
 
 ## BLOCKER
 
-- Hacer autenticación fail-closed por entorno; secret y cookie Secure obligatorios en producción.
+- [IMPLEMENTADO 4A] Auth fail-closed por entorno. [PENDIENTE] Demostrar en el entorno productivo secret gestionado, `AUTH_ENFORCED=true`, `COOKIE_SECURE=true` y HTTPS.
 - Completar y aprobar MVP: RRHH base, marcaje real/geolocalización y administración de asistencia; salidas/ajustes y lotes si los productos lo requieren.
 - Ejecutar suite y migraciones desde cero/sobre copia anonimizada en PostgreSQL; añadir tests de permisos, concurrencia y flujos críticos.
 - Proveer HTTPS, dominio/proxy, DB y storage persistentes, backups automáticos y restore probado.
@@ -10,7 +10,7 @@
 
 ## REQUIRED
 
-- Build reproducible, staging, variables `DATABASE_URL`, `SESSION_SECRET`, `AUTH_ENFORCED=true`, `COOKIE_SECURE=true`, `SESSION_HOURS`, `APP_TIMEZONE`, storage y límite de upload.
+- Build reproducible, staging, variables `APP_ENV=production`, `DATABASE_URL`, `SESSION_SECRET`, `AUTH_ENFORCED=true`, `COOKIE_SECURE=true`, `SESSION_HOURS`, `APP_TIMEZONE`, storage y límite de upload.
 - Readiness DB, logs estructurados, captura de errores, auditoría mínima, runbooks, migración controlada y rollback.
 - Rate limit login, cabeceras proxy/seguridad y matriz RBAC aprobada.
 

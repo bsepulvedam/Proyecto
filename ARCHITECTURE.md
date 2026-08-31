@@ -31,7 +31,7 @@ flowchart LR
 
 ## Flujo y seguridad
 
-La sesión opaca y el token CSRF se almacenan hasheados; las cookies son HttpOnly/SameSite Lax. Argon2id protege contraseñas. `AUTH_ENFORCED=false` permite una identidad administrativa de desarrollo y por ello es un bloqueo de configuración para producción. Los permisos son un mapa RBAC en código.
+La sesión opaca y el token CSRF se almacenan hasheados; las cookies son HttpOnly/SameSite Lax. Argon2id protege contraseñas. [IMPLEMENTADO] La autenticación está activa por defecto y el bypass administrativo solo se permite con `APP_ENV=development|test`; staging/producción fallan al arrancar si se intenta deshabilitarla. Los permisos siguen siendo un mapa RBAC en código.
 
 ## Arquitectura objetivo
 
@@ -52,7 +52,7 @@ Cada módulo tendrá contratos de aplicación, servicios y persistencia propios;
 
 ## Infraestructura, observabilidad y pruebas
 
-No hay artefactos de Docker, CI/CD, proxy, TLS, backups o monitoreo versionados. `/health` solo confirma que el proceso responde. La suite usa `unittest` y pruebas web/servicio, pero no pudo ejecutarse en esta auditoría por ausencia de Python local.
+No hay artefactos de Docker, CI/CD, proxy, TLS, backups o monitoreo versionados. `/health` solo confirma que el proceso responde. [IMPLEMENTADO] Python 3.14.7 y la `.venv` local ejecutaron 99 tests aislados correctamente en Asistencia 4A. [PENDIENTE] Las migraciones todavía requieren validación sobre una PostgreSQL desechable autorizada.
 
 ## Documentación relacionada
 

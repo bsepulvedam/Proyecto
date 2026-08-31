@@ -1,11 +1,11 @@
 # ADR-004: Geolocalización de asistencia
 
-**Status:** PROPOSED
+**Status:** ACCEPTED
 
 ## Context
 Lugares admiten coordenada/radio, pero no hay marcajes. GPS es sensible e impreciso.
 ## Decision
-Capturar solo por evento, guardar precisión y separar evidencia de la evaluación geográfica versionada.
+Capturar únicamente al registrar `ENTRADA` o `SALIDA`, sin seguimiento continuo. El backend evaluará la captura contra el radio configurable de la zona. Un evento fuera de rango se conserva y genera incidencia/revisión. Guardar precisión y separar evidencia de la evaluación geográfica versionada.
 ## Consequences
 Trazabilidad y recalculabilidad; aumenta deber de privacidad y seguridad.
 ## Alternatives

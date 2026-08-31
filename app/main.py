@@ -10,9 +10,11 @@ from app.web.inventory import router as inventory_router
 from app.web.auth import router as auth_router
 from app.web.admin import router as admin_router
 from app.web.attendance import router as attendance_router
+from app.core.config import validate_security_config
 from app.core.security import require_module, require_platform_access
 
 
+validate_security_config()
 app = FastAPI(title="Boliklor OT API", version="0.1.0")
 app.include_router(auth_router)
 app.include_router(admin_router, dependencies=[Depends(require_module("ADMIN_ACCESS"))])

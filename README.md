@@ -32,7 +32,7 @@ La captura GPS y los marcajes reales de asistencia todavía no están implementa
 - **Archivos Excel:** OpenPyXL
 - **Pruebas:** biblioteca estándar `unittest`
 
-Las restricciones de versiones mantenidas por el proyecto se encuentran en `requirements.txt`.
+Las dependencias y los rangos actualmente definidos por el proyecto se encuentran en `requirements.txt`; algunas dependencias todavía no están fijadas a una versión exacta.
 
 ## Arquitectura y estructura
 
@@ -135,12 +135,14 @@ Edita tu copia de `.env` sin compartirla ni subirla a Git. Las variables actuale
 |---|---|
 | `DATABASE_URL` | URL SQLAlchemy de la instancia PostgreSQL del desarrollador. |
 | `SESSION_SECRET` | Secreto aleatorio usado para proteger sesiones. |
+| `APP_ENV` | Entorno explícito: `development`, `test`, `staging` o `production`. |
 | `AUTH_ENFORCED` | Activa la autenticación y autorización de la plataforma. |
 | `COOKIE_SECURE` | Exige HTTPS para enviar cookies cuando está activo. |
 | `SESSION_HOURS` | Duración de las sesiones. |
 | `APP_TIMEZONE` | Zona horaria operacional, normalmente `America/Santiago`. |
 | `JUSTIFICATION_STORAGE_DIR` | Directorio privado de archivos de justificación. |
 | `JUSTIFICATION_MAX_MB` | Tamaño máximo permitido para cada archivo. El valor de referencia actual es 8 MB. |
+| `PRODUCT_IMPORT_FILE` | Ruta opcional al Excel legacy usado por importación y stock transitorio. |
 
 Genera un `SESSION_SECRET` propio:
 
@@ -151,12 +153,15 @@ python -c "import secrets; print(secrets.token_urlsafe(48))"
 Para desarrollo local por HTTP, una configuración coherente incluye:
 
 ```dotenv
+APP_ENV=development
 APP_TIMEZONE=America/Santiago
 AUTH_ENFORCED=true
 COOKIE_SECURE=false
 ```
 
 `COOKIE_SECURE=false` es únicamente apropiado para HTTP local. En producción debe utilizarse HTTPS y configurarse `COOKIE_SECURE=true`. Nunca copies contraseñas, credenciales, API keys o secretos reales al README, a `.env.example` o al repositorio.
+
+La autenticación está activa por defecto. `AUTH_ENFORCED=false` solo se acepta cuando `APP_ENV` es explícitamente `development` o `test`; `staging`, `production`, un entorno ausente o un booleano inválido fallan de forma segura.
 
 ## Migraciones
 
@@ -175,6 +180,8 @@ El HEAD actual del código es:
 ```
 
 En un clon nuevo, `alembic upgrade head` crea y actualiza todas las tablas hasta esa revisión.
+
+La cadena estática se valida en la suite. Las pruebas destructivas de upgrade/downgrade deben usar exclusivamente una PostgreSQL desechable según [Validación segura de migraciones](docs/operations/migration-validation.md), nunca la base local con datos reales.
 
 ## Crear el primer ADMIN
 
@@ -276,7 +283,7 @@ El ADMIN no puede recuperar ni visualizar la contraseña personal del usuario. L
 - validación geográfica;
 - cálculo Haversine o geocercas;
 - marcajes reales;
-- eventos `INICIO_JORNADA_BASE`, `LLEGADA_LUGAR_TRABAJO`, `SALIDA_LUGAR_TRABAJO` y `FIN_JORNADA_BASE`;
+- sesiones de trabajo y eventos `ENTRADA`/`SALIDA`;
 - alertas de asistencia;
 - planificación diaria previa;
 - supervisión completa de JEFATURA;
@@ -287,11 +294,12 @@ La ruta `/mi-asistencia/registrar` prepara la experiencia y explica el flujo, pe
 ### Decisiones arquitectónicas
 
 - `DIURNO` y `NOCTURNO` son turnos, no tipos de marcaje.
-- Un trabajador puede excepcionalmente trabajar hasta dos turnos en un día.
-- El sistema futuro no debe limitarse a dos eventos GPS diarios.
+- Un trabajador podrá tener múltiples sesiones en un mismo día operacional y abrir otra después de cerrar la anterior, incluido un turno nocturno que cruce medianoche.
+- Cada sesión tendrá conceptualmente `ENTRADA` y `SALIDA`; se impedirán duplicados y una salida inmediatamente posterior, con intervalo mínimo todavía configurable y pendiente de valor definitivo.
 - Base y Taller de La Pintana son conceptos diferentes aunque compartan o tengan una ubicación física cercana.
-- `INICIO_JORNADA_BASE` y `LLEGADA_LUGAR_TRABAJO` serán eventos distintos.
-- No se genera una ausencia automática por falta de marcaje.
+- La hora del servidor será autoritativa y `APP_TIMEZONE` determinará el día operacional.
+- Entrada y salida usarán ubicación solo al marcar; el backend evaluará el radio configurable. Un evento fuera de rango se conservará y generará revisión.
+- No se genera una ausencia automática por falta de marcaje: primero será `PENDIENTE_DE_REVISION` y solo podrá calcularse atraso con una hora esperada válida.
 - Actualmente no existe planificación diaria que determine que una persona debía asistir.
 - Un día neutro en el calendario significa “sin registros”, no “ausente”.
 - Las comunas iniciales de terreno son zonas amplias que podrán refinarse posteriormente en lugares o faenas específicos.
@@ -315,14 +323,16 @@ Una justificación nueva queda en estado `PENDIENTE`. El modelo también contemp
 Desde la raíz, con el entorno virtual activo:
 
 ```powershell
+$env:APP_ENV = "test"
 $env:AUTH_ENFORCED = "false"
+$env:DATABASE_URL = "sqlite+pysqlite:///:memory:"
 python -m compileall -q app tests alembic
 python -m unittest discover -s tests -v
 ```
 
-La última validación realizada para esta actualización ejecutó **92 pruebas: 92 OK**.
+La validación de Asistencia 4A ejecutó **99 pruebas: 99 OK**. Incluye los 92 tests heredados, aislamiento del dashboard, configuración fail-closed y baseline estático de migraciones. La evidencia resumida está en [Baseline técnico de Asistencia 4A](docs/audit/attendance-4a-baseline.md).
 
-Las pruebas de autenticación activan su propia configuración protegida; `AUTH_ENFORCED=false` en el comando general permite aislar las pruebas legacy de módulos web. Esto no es una recomendación para ejecutar la aplicación real.
+La URL SQLite del comando impide que la suite use accidentalmente PostgreSQL local. Las pruebas que necesitan persistencia crean su propio esquema/sesión desechable y restauran overrides. `APP_ENV=test` y `AUTH_ENFORCED=false` son exclusivos del proceso de test y no son una recomendación para ejecutar la aplicación real.
 
 ## Git y archivos locales
 

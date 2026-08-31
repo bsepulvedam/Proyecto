@@ -2,14 +2,41 @@ import os
 import secrets
 
 _DEVELOPMENT_SESSION_SECRET = secrets.token_urlsafe(48)
+_TRUE_VALUES = {"1", "true", "yes", "on"}
+_FALSE_VALUES = {"0", "false", "no", "off"}
+_VALID_ENVIRONMENTS = {"development", "test", "staging", "production"}
+_AUTH_BYPASS_ENVIRONMENTS = {"development", "test"}
 
 
 def env_bool(name: str, default: bool = False) -> bool:
-    return os.getenv(name, str(default)).strip().lower() in {"1", "true", "yes", "on"}
+    raw_value = os.getenv(name)
+    if raw_value is None:
+        return default
+    value = raw_value.strip().lower()
+    if value in _TRUE_VALUES:
+        return True
+    if value in _FALSE_VALUES:
+        return False
+    raise RuntimeError(f"{name} debe ser un booleano válido")
+
+
+def app_environment() -> str:
+    environment = os.getenv("APP_ENV", "production").strip().lower()
+    if environment not in _VALID_ENVIRONMENTS:
+        raise RuntimeError(
+            "APP_ENV debe ser development, test, staging o production"
+        )
+    return environment
 
 
 def auth_enforced() -> bool:
-    return env_bool("AUTH_ENFORCED", False)
+    environment = app_environment()
+    enforced = env_bool("AUTH_ENFORCED", True)
+    if not enforced and environment not in _AUTH_BYPASS_ENVIRONMENTS:
+        raise RuntimeError(
+            "AUTH_ENFORCED=false solo está permitido en development o test"
+        )
+    return enforced
 
 
 def cookie_secure() -> bool:
@@ -23,6 +50,11 @@ def session_secret() -> str:
     if auth_enforced():
         raise RuntimeError("SESSION_SECRET debe configurarse cuando AUTH_ENFORCED=true")
     return _DEVELOPMENT_SESSION_SECRET
+
+
+def validate_security_config() -> None:
+    if auth_enforced():
+        session_secret()
 
 
 def session_hours() -> int:

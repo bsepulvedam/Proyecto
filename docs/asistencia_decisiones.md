@@ -1,13 +1,9 @@
-# Decisiones confirmadas para la siguiente fase de Asistencia
+# Decisiones históricas de Asistencia
 
-Este documento registra reglas acordadas, pero no implementadas en la Fase Asistencia 2.
+[DEUDA_TECNICA] Este archivo se conserva como antecedente de Asistencia 2. Ya no es la fuente canónica de las reglas futuras; prevalece `docs/product/attendance/`, consolidado en Asistencia 4A.
 
-- No existe planificación diaria previa; la ausencia de un marcaje no significa automáticamente ausencia laboral.
-- No deben generarse estados `AUSENTE`, `SIN MARCA` o `TRABAJADOR ESPERADO` sin una fuente posterior de planificación.
-- Los turnos iniciales serán `DIURNO` y `NOCTURNO`.
-- El trabajador seleccionará el turno al registrar asistencia.
-- Un trabajador podrá trabajar excepcionalmente ambos turnos el mismo día, previa coordinación con jefatura.
-- `turno` y `tipo_marcaje` son conceptos distintos.
-- Los tipos de marcaje futuros serán `ENTRADA` y `SALIDA`.
-- Un mismo día podrá contener entrada y salida para turno diurno, y entrada y salida para turno nocturno.
-- Esta fase no crea tablas ni rutas de turnos, GPS, lugares o marcajes.
+[IMPLEMENTADO] Desde Asistencia 2 se incorporaron lugares, asignaciones, catálogo de turnos y justificaciones. Siguen sin existir sesiones, marcajes o GPS funcional.
+
+[CONFIRMADO] Se mantienen las decisiones compatibles: no inferir ausencia sin fuente válida; `DIURNO`/`NOCTURNO` es jornada elegida, no tipo de marcaje; cada sesión tiene conceptualmente `ENTRADA`/`SALIDA`; pueden existir múltiples sesiones y un turno nocturno puede cruzar medianoche.
+
+[CONFIRMADO] La especificación completa vigente —duplicados, intervalo mínimo configurable, hora del servidor, `APP_TIMEZONE`, GPS por evento, fuera de rango, permisos, estados visuales, tolerancia, exportación y privacidad— está en `docs/product/attendance/`.

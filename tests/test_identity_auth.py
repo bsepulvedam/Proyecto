@@ -1,10 +1,13 @@
 import asyncio
 import os
 import re
+import subprocess
+import sys
 import unittest
 from dataclasses import dataclass
 from http.cookies import SimpleCookie
 from pathlib import Path
+from unittest.mock import patch
 from urllib.parse import urlencode
 
 from sqlalchemy import create_engine, func, select
@@ -13,6 +16,7 @@ from sqlalchemy.pool import StaticPool
 
 from app.database.base import Base
 from app.database.session import get_db
+from app.core.config import app_environment, auth_enforced, env_bool, validate_security_config
 from app.main import app
 from app.models.empresa import Empresa
 from app.models.identity import Rol, SesionUsuario, Trabajador, Usuario
@@ -193,6 +197,67 @@ class IdentityAuthTests(unittest.TestCase):
             self.assertNotIn(f'op.alter_table("{protected}"', migration)
         self.assertNotIn("marcajes", migration)
         self.assertNotIn("lugares_trabajo", migration)
+
+
+class SecurityConfigurationTests(unittest.TestCase):
+    def test_auth_defaults_to_enabled_in_production(self):
+        with patch.dict(os.environ, {}, clear=True):
+            self.assertEqual(app_environment(), "production")
+            self.assertTrue(auth_enforced())
+            with self.assertRaisesRegex(RuntimeError, "SESSION_SECRET"):
+                validate_security_config()
+
+    def test_auth_bypass_is_explicitly_limited_to_development_and_test(self):
+        for environment in ("development", "test"):
+            with self.subTest(environment=environment), patch.dict(
+                os.environ,
+                {"APP_ENV": environment, "AUTH_ENFORCED": "false"},
+                clear=True,
+            ):
+                self.assertFalse(auth_enforced())
+                validate_security_config()
+
+    def test_auth_bypass_is_rejected_in_staging_and_production(self):
+        for environment in ("staging", "production"):
+            with self.subTest(environment=environment), patch.dict(
+                os.environ,
+                {"APP_ENV": environment, "AUTH_ENFORCED": "false"},
+                clear=True,
+            ):
+                with self.assertRaisesRegex(RuntimeError, "solo está permitido"):
+                    auth_enforced()
+
+    def test_invalid_boolean_configuration_fails_closed(self):
+        with patch.dict(
+            os.environ, {"AUTH_ENFORCED": "not-a-boolean"}, clear=True
+        ):
+            with self.assertRaisesRegex(RuntimeError, "booleano válido"):
+                env_bool("AUTH_ENFORCED", True)
+        with patch.dict(
+            os.environ, {"APP_ENV": "unknown", "AUTH_ENFORCED": "true"}, clear=True
+        ):
+            with self.assertRaisesRegex(RuntimeError, "APP_ENV"):
+                auth_enforced()
+
+    def test_application_composition_rejects_production_auth_bypass(self):
+        environment = os.environ.copy()
+        environment.update(
+            {
+                "APP_ENV": "production",
+                "AUTH_ENFORCED": "false",
+                "DATABASE_URL": "sqlite+pysqlite:///:memory:",
+                "SESSION_SECRET": "test-secret-only-not-production",
+            }
+        )
+        result = subprocess.run(
+            [sys.executable, "-c", "import app.main"],
+            capture_output=True,
+            text=True,
+            env=environment,
+            check=False,
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("solo está permitido", result.stderr)
 
 
 if __name__ == "__main__":

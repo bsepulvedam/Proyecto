@@ -18,7 +18,7 @@ Monolito por capas: FastAPI/Uvicorn, Pydantic, SQLAlchemy 2, Psycopg 3, PostgreS
 
 ## Authentication Assessment
 
-[IMPLEMENTADO] separación usuario/trabajador, Argon2id, temporal obligatoria, sesiones revocables, CSRF y protección router. [DEUDA_TECNICA] RBAC hardcodeado; `AUTH_ENFORCED=false` permite ADMIN de desarrollo; sin rate limit/MFA/recuperación/auditoría privilegiada.
+[IMPLEMENTADO] separación usuario/trabajador, Argon2id, temporal obligatoria, sesiones revocables, CSRF y protección router. [IMPLEMENTADO 4A] auth activa por defecto y bypass ADMIN limitado a `APP_ENV=development|test`. [DEUDA_TECNICA] RBAC hardcodeado; sin rate limit/MFA/recuperación/auditoría privilegiada.
 
 ## Human Resources Assessment
 
@@ -34,7 +34,7 @@ Monolito por capas: FastAPI/Uvicorn, Pydantic, SQLAlchemy 2, Psycopg 3, PostgreS
 
 ## Database Assessment
 
-Seis migraciones lineales y 15 tablas con FKs, uniques, checks e índices. No se verificó contra una instancia PostgreSQL. Riesgos: timestamps actualizados por ORM, esquema de estados distribuido, falta de auditoría y futura escalabilidad del stock calculado al vuelo. No se encontraron migraciones divergentes evidentes en revisión estática.
+Seis migraciones lineales y 16 tablas con FKs, uniques, checks e índices. No se verificó contra una instancia PostgreSQL. Riesgos: timestamps actualizados por ORM, esquema de estados distribuido, falta de auditoría y futura escalabilidad del stock calculado al vuelo. No se encontraron migraciones divergentes evidentes en revisión estática.
 
 ## API Assessment
 
@@ -46,7 +46,7 @@ UI activa coherente en Jinja/static y prototipo duplicado en `frontend/`. Sin ev
 
 ## Testing Assessment
 
-Diez archivos y 92 métodos `test_` cubren web, identidad, asistencia estructural, inventario, importación y OT. Predominan integración con SQLite/cliente ASGI; faltan PostgreSQL real desechable, migraciones, concurrencia, lotes/GPS (aún inexistentes), seguridad de cabeceras y E2E. No se pudieron ejecutar: Python no está instalado/disponible en el equipo; el README afirma 92 OK como antecedente, no como resultado de esta auditoría.
+La auditoría original identificó diez archivos y 92 métodos `test_`, pero no pudo ejecutarlos por falta de Python disponible en ese momento. [IMPLEMENTADO 4A] La `.venv` actual con Python 3.14.7 ejecuta 99 tests en SQLite aislada: 92 heredados y 7 nuevos de configuración/migraciones. [PENDIENTE] Faltan PostgreSQL desechable, concurrencia, seguridad de cabeceras y E2E.
 
 ## Security Assessment
 
@@ -64,7 +64,7 @@ Code scale: capas compartidas crecerán acopladas. Feature scale: ownership de R
 
 | ID | Área | Hallazgo y evidencia | Severidad | Impacto | Recomendación | Estado |
 |---|---|---|---|---|---|---|
-| AUD-SEC-001 | Seguridad | `app/core/config.py` usa `AUTH_ENFORCED=False`; `core/security.py` concede ADMIN de desarrollo | CRÍTICO | exposición total por mala configuración | fail-closed fuera de local y gate de arranque | RIESGO P0 |
+| AUD-SEC-001 | Seguridad | [RESUELTO 4A] auth activa por defecto; bypass exige `APP_ENV=development|test` y se valida al componer la app | CRÍTICO original | exposición total evitada por fail-closed | mantener pruebas y configuración productiva explícita | CERRADO 4A |
 | AUD-OPS-001 | Operaciones | no existen CI/proxy/TLS/backups/restore/deploy en árbol | ALTO | release y recuperación no demostrables | plataforma mínima y restore probado | RIESGO P1 |
 | AUD-ATT-001 | Asistencia | README, `web/attendance.py` y modelos no contienen marcajes | ALTO | MVP de asistencia incompleto | diseñar eventos/GPS tras cerrar reglas | GAP P1 |
 | AUD-INV-001 | Inventario | modelos solo movimiento/detalle; no lote/vencimiento/bodega | ALTO | trazabilidad y FEFO imposibles | definir y migrar ledger por lote | GAP P1 |
@@ -72,7 +72,7 @@ Code scale: capas compartidas crecerán acopladas. Feature scale: ownership de R
 | AUD-AUTH-001 | Identidad | `ROLE_PERMISSIONS` está en `auth_service.py` | MEDIO | cambios dispersos/no auditables | catálogo y matriz RBAC central | DEUDA_TECNICA P2 |
 | AUD-DB-001 | DB | no hay prueba automatizada ORM–Alembic/PostgreSQL | ALTO | drift y fallos al desplegar | CI con upgrade desde cero y smoke | RIESGO P1 |
 | AUD-OBS-001 | Observabilidad | `/health` solo retorna JSON; logging puntual | ALTO | incidentes invisibles | readiness, logs estructurados y alertas | GAP P1 |
-| AUD-TEST-001 | Testing | Python no disponible durante auditoría | MEDIO | baseline no reproducida | entorno reproducible y CI | RIESGO P1 |
+| AUD-TEST-001 | Testing | [RESUELTO 4A] Python 3.14.7, `pip check` y 99 tests OK | MEDIO original | baseline local reproducida | agregar CI y PostgreSQL desechable | CERRADO LOCAL / CI PENDIENTE |
 | AUD-HR-001 | RRHH | `Trabajador` está en `models/identity.py` y tiene datos mínimos | MEDIO | ownership y evolución confusos | módulo RRHH incremental | DEUDA_TECNICA P2 |
 | AUD-UX-001 | UX | `frontend/` duplica conceptualmente UI activa | BAJO | confusión de mantenimiento | mantenerlo explícitamente histórico o retirar con aprobación | DEUDA_TECNICA P3 |
 | AUD-PRIV-001 | Privacidad | coordenadas/justificaciones sensibles sin política documentada | ALTO | sobreexposición/retención indebida | decisiones de acceso, minimización y retención | PENDIENTE P1 |

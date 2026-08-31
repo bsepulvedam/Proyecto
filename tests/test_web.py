@@ -1,6 +1,13 @@
 import asyncio
+import os
 import unittest
 
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
+
+from app.database.base import Base
+from app.database.session import get_db
 from app.main import app
 
 
@@ -48,6 +55,37 @@ async def asgi_get(path: str) -> tuple[int, dict[str, str], bytes]:
 
 
 class WebIntegrationTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.previous_environment = {
+            name: os.environ.get(name) for name in ("APP_ENV", "AUTH_ENFORCED")
+        }
+        os.environ.update({"APP_ENV": "test", "AUTH_ENFORCED": "false"})
+        self.engine = create_engine(
+            "sqlite+pysqlite:///:memory:",
+            connect_args={"check_same_thread": False},
+            poolclass=StaticPool,
+        )
+        Base.metadata.create_all(self.engine)
+        test_session = sessionmaker(bind=self.engine, expire_on_commit=False)
+
+        def override_db():
+            db = test_session()
+            try:
+                yield db
+            finally:
+                db.close()
+
+        app.dependency_overrides[get_db] = override_db
+
+    def tearDown(self) -> None:
+        app.dependency_overrides.clear()
+        self.engine.dispose()
+        for name, value in self.previous_environment.items():
+            if value is None:
+                os.environ.pop(name, None)
+            else:
+                os.environ[name] = value
+
     def test_root(self) -> None:
         status, _, body = asyncio.run(asgi_get("/"))
         self.assertEqual(status, 200)

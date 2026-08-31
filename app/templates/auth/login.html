@@ -1,4 +1,36 @@
 {% extends "base.html" %}
 {% block title %}Iniciar sesión | BOLIKLOR{% endblock %}
 {% block body_class %}login-page{% endblock %}
-{% block body %}<main class="login-shell"><section class="login-card" aria-labelledby="login-title"><div class="brand-logo brand-logo--login"><span>LOGO</span></div><div class="text-center mb-4"><h1 id="login-title" class="login-title">BOLIKLOR</h1><p class="login-subtitle">Plataforma interna</p></div>{% if error %}<div class="alert alert-danger" role="alert">{{ error }}</div>{% endif %}<form method="post" action="{{ url_for('login_submit') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><div class="mb-3"><label class="form-label" for="username">Usuario o email</label><input class="form-control" id="username" name="username" autocomplete="username" required autofocus></div><div class="mb-4"><label class="form-label" for="password">Contraseña</label><input class="form-control" id="password" name="password" type="password" autocomplete="current-password" required></div><button class="btn btn-brand w-100" type="submit">Iniciar sesión</button></form><p class="login-note">Acceso exclusivo para personal autorizado</p></section></main>{% endblock %}
+{% block body %}
+<main class="login-shell">
+  <section class="login-card" aria-labelledby="login-title">
+    <div class="brand-logo brand-logo--login">
+      <img src="{{ url_for('static', path='/img/logo-boliklor.jpg') }}" alt="BOLIKLOR">
+    </div>
+    <div class="text-center mb-4">
+      <h1 id="login-title" class="login-title">BOLIKLOR</h1>
+      <p class="login-subtitle">Plataforma interna</p>
+    </div>
+    {% if error %}<div class="alert alert-danger" role="alert">{{ error }}</div>{% endif %}
+    <form method="post" action="{{ url_for('login_submit') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <div class="mb-3">
+        <label class="form-label" for="username">Usuario o email</label>
+        <div class="input-group">
+          <span class="input-group-text" aria-hidden="true"><i class="bi bi-person"></i></span>
+          <input class="form-control" id="username" name="username" placeholder="Ingrese su usuario o email" autocomplete="username" required autofocus>
+        </div>
+      </div>
+      <div class="mb-4">
+        <label class="form-label" for="password">Contraseña</label>
+        <div class="input-group">
+          <span class="input-group-text" aria-hidden="true"><i class="bi bi-lock"></i></span>
+          <input class="form-control" id="password" name="password" type="password" placeholder="Ingrese su contraseña" autocomplete="current-password" required>
+        </div>
+      </div>
+      <button class="btn btn-brand w-100" type="submit">Iniciar sesión <i class="bi bi-arrow-right ms-2" aria-hidden="true"></i></button>
+    </form>
+    <p class="login-note">Acceso exclusivo para personal autorizado</p>
+  </section>
+</main>
+{% endblock %}

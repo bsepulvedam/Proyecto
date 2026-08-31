@@ -2,9 +2,10 @@
 
 ## Baseline local
 
-- [IMPLEMENTADO] `tests/test_migration_baseline.py` verifica un único head `20260830_06`, seis revisiones lineales y que las 16 tablas ORM tengan una migración creadora.
+- [IMPLEMENTADO] `tests/test_migration_baseline.py` verifica un único head `20260831_07`, siete revisiones lineales, 22 tablas ORM con migración creadora y hashes intactos de las seis revisiones históricas.
 - [CONFIRMADO] `python -m alembic heads` y `python -m alembic history` son comprobaciones estáticas y no requieren aplicar cambios.
-- [PENDIENTE] Upgrade real desde cero, upgrade desde `20260829_05`, `alembic check` y downgrade deben ejecutarse en PostgreSQL desechable.
+- [CONFIRMADO GATE 4B-1 2026-08-31] En `boliklor_ot_test` se validaron upgrade real desde cero, downgrade `20260831_07` → `20260830_06`, re-upgrade, 22 tablas de aplicación, constraints, FKs `RESTRICT`, índice parcial, bloqueo, concurrencia y rollback transaccional.
+- [CONFIRMADO 2026-08-31] `alembic check` devuelve `No new upgrade operations detected.` La metadata ORM declara explícitamente `ix_detalle_movimientos_movimiento_id` e `ix_detalle_movimientos_producto_id`, iguales a PostgreSQL y a `20260827_03`; la revisión histórica permaneció intacta y no se creó una migración nominal.
 
 ## Guardas obligatorias
 
@@ -41,11 +42,11 @@ Usar una segunda base vacía para comprobar el salto desde la revisión previa:
 
 ```powershell
 $env:DATABASE_URL = $env:TEST_DATABASE_URL
-python -m alembic upgrade 20260829_05
 python -m alembic upgrade 20260830_06
+python -m alembic upgrade 20260831_07
 python -m alembic current
-python -m alembic downgrade 20260829_05
-python -m alembic upgrade 20260830_06
+python -m alembic downgrade 20260830_06
+python -m alembic upgrade 20260831_07
 ```
 
 La limpieza de las bases corresponde al owner que las aprovisionó. Nunca automatizar `drop database` desde el repositorio ni sustituir `TEST_DATABASE_URL` por una URL real para completar el checklist.

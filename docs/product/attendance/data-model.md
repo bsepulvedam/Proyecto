@@ -1,7 +1,7 @@
 # Modelo de datos de Asistencia
 
-[IMPLEMENTADO] `LugarTrabajo`, `AsignacionTrabajadorLugar`, `Turno`, `JustificacionInasistencia`; [PENDIENTE] no hay sesión de trabajo, relación de turno seleccionada ni tabla de marcaje.
+[IMPLEMENTADO] `LugarTrabajo`, `AsignacionTrabajadorLugar`, `Turno`, `JustificacionInasistencia`, `SesionTrabajo`, `MarcajeAsistencia`, `EvidenciaGPSMarcaje`, `EvaluacionGeograficaMarcaje`, `IncidenciaAsistencia` y `CorreccionMarcaje`.
 
-[CONFIRMADO] El objetivo conceptual separa sesión de trabajo, eventos `ENTRADA`/`SALIDA`, captura GPS, evaluación de rango, incidencia y corrección auditada. Una sesión pertenece al trabajador de RRHH, conserva la jornada elegida y puede cruzar medianoche; el día operacional se deriva con `APP_TIMEZONE` y hora autoritativa del servidor.
+[IMPLEMENTADO 4B-1] Una sesión pertenece al Worker de RRHH, conserva turno y fecha operacional, admite `ENTRADA`/`SALIDA` únicas y puede cruzar medianoche. El evento usa hora UTC del servidor; `APP_TIMEZONE` deriva la fecha operacional.
 
-[PROPUESTO] Persistir evidencia capturada y evaluación derivada por separado, con versión de regla/radio suficiente para auditoría. Evitar snapshots personales salvo mínimos necesarios. Una futura exportación podrá entregar datos a remuneraciones, pero `VALOR_DIA`/`TOTAL_PAGO` no forman parte del modelo 4B confirmado ni se calculan en Asistencia.
+[IMPLEMENTADO 4B-1] Evidencia capturada y evaluación derivada están separadas; la evaluación conserva zona, distancia, radio, umbral y versión. Incidencias y correcciones no sobrescriben evidencia. [PENDIENTE] workflow administrativo y política de retención. `VALOR_DIA`/`TOTAL_PAGO` no forman parte de Asistencia.

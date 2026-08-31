@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import Boolean, CheckConstraint, Date, DateTime, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint, func
+from sqlalchemy import Boolean, CheckConstraint, Date, DateTime, ForeignKey, Index, Integer, Numeric, String, Text, UniqueConstraint, func, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database.base import Base
@@ -69,6 +69,138 @@ class JustificacionInasistencia(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     trabajador: Mapped["Trabajador"] = relationship(back_populates="justificaciones")
     revisado_por: Mapped["Usuario | None"] = relationship(foreign_keys=[revisado_por_id])
+
+
+class SesionTrabajo(Base):
+    __tablename__ = "sesiones_trabajo"
+    __table_args__ = (
+        CheckConstraint("estado IN ('ABIERTA','CERRADA')", name="ck_sesiones_trabajo_estado"),
+        CheckConstraint(
+            "(estado = 'ABIERTA' AND cerrado_at IS NULL) OR (estado = 'CERRADA' AND cerrado_at IS NOT NULL)",
+            name="ck_sesiones_trabajo_cierre",
+        ),
+        Index(
+            "uq_sesiones_trabajo_abierta_por_trabajador",
+            "trabajador_id",
+            unique=True,
+            postgresql_where=text("estado = 'ABIERTA'"),
+            sqlite_where=text("estado = 'ABIERTA'"),
+        ),
+        Index("ix_sesiones_trabajo_trabajador_fecha", "trabajador_id", "fecha_operacional"),
+    )
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    trabajador_id: Mapped[int] = mapped_column(ForeignKey("trabajadores.id", ondelete="RESTRICT"), nullable=False)
+    turno_id: Mapped[int] = mapped_column(ForeignKey("turnos.id", ondelete="RESTRICT"), nullable=False, index=True)
+    fecha_operacional: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    estado: Mapped[str] = mapped_column(String(20), nullable=False, default="ABIERTA", server_default="ABIERTA", index=True)
+    cerrado_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    trabajador: Mapped["Trabajador"] = relationship(back_populates="sesiones_trabajo")
+    turno: Mapped[Turno] = relationship()
+    marcajes: Mapped[list["MarcajeAsistencia"]] = relationship(back_populates="sesion", order_by="MarcajeAsistencia.ocurrido_at")
+
+
+class MarcajeAsistencia(Base):
+    __tablename__ = "marcajes_asistencia"
+    __table_args__ = (
+        UniqueConstraint("sesion_id", "tipo", name="uq_marcajes_asistencia_sesion_tipo"),
+        CheckConstraint("tipo IN ('ENTRADA','SALIDA')", name="ck_marcajes_asistencia_tipo"),
+    )
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    sesion_id: Mapped[int] = mapped_column(ForeignKey("sesiones_trabajo.id", ondelete="RESTRICT"), nullable=False, index=True)
+    tipo: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
+    ocurrido_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    sesion: Mapped[SesionTrabajo] = relationship(back_populates="marcajes")
+    evidencia_gps: Mapped["EvidenciaGPSMarcaje"] = relationship(back_populates="marcaje", uselist=False)
+    evaluacion_geografica: Mapped["EvaluacionGeograficaMarcaje"] = relationship(back_populates="marcaje", uselist=False)
+    incidencias: Mapped[list["IncidenciaAsistencia"]] = relationship(back_populates="marcaje")
+    correcciones: Mapped[list["CorreccionMarcaje"]] = relationship(back_populates="marcaje")
+
+
+class EvidenciaGPSMarcaje(Base):
+    __tablename__ = "evidencias_gps_marcaje"
+    __table_args__ = (
+        UniqueConstraint("marcaje_id", name="uq_evidencias_gps_marcaje_marcaje"),
+        CheckConstraint("latitud BETWEEN -90 AND 90", name="ck_evidencias_gps_latitud"),
+        CheckConstraint("longitud BETWEEN -180 AND 180", name="ck_evidencias_gps_longitud"),
+        CheckConstraint("NOT (latitud = 0 AND longitud = 0)", name="ck_evidencias_gps_no_cero_cero"),
+        CheckConstraint("precision_m > 0", name="ck_evidencias_gps_precision"),
+    )
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    marcaje_id: Mapped[int] = mapped_column(ForeignKey("marcajes_asistencia.id", ondelete="RESTRICT"), nullable=False)
+    latitud: Mapped[Decimal] = mapped_column(Numeric(12, 9), nullable=False)
+    longitud: Mapped[Decimal] = mapped_column(Numeric(13, 9), nullable=False)
+    precision_m: Mapped[Decimal] = mapped_column(Numeric(8, 2), nullable=False)
+    capturada_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    marcaje: Mapped[MarcajeAsistencia] = relationship(back_populates="evidencia_gps")
+
+
+class EvaluacionGeograficaMarcaje(Base):
+    __tablename__ = "evaluaciones_geograficas_marcaje"
+    __table_args__ = (
+        UniqueConstraint("marcaje_id", name="uq_evaluaciones_geograficas_marcaje"),
+        CheckConstraint(
+            "estado_geocerca IN ('DENTRO_RANGO','FUERA_RANGO','SIN_ZONA_CONFIGURADA')",
+            name="ck_evaluaciones_geograficas_estado",
+        ),
+        CheckConstraint("estado_precision IN ('ACEPTABLE','BAJA_PRECISION')", name="ck_evaluaciones_geograficas_precision"),
+        CheckConstraint("distancia_m IS NULL OR distancia_m >= 0", name="ck_evaluaciones_geograficas_distancia"),
+        CheckConstraint("radio_m_aplicado IS NULL OR radio_m_aplicado > 0", name="ck_evaluaciones_geograficas_radio"),
+        CheckConstraint("max_precision_m_aplicada > 0", name="ck_evaluaciones_geograficas_max_precision"),
+        CheckConstraint(
+            "(lugar_detectado_id IS NULL AND estado_geocerca = 'SIN_ZONA_CONFIGURADA' AND distancia_m IS NULL AND radio_m_aplicado IS NULL) OR "
+            "(lugar_detectado_id IS NOT NULL AND estado_geocerca IN ('DENTRO_RANGO','FUERA_RANGO') AND distancia_m IS NOT NULL AND radio_m_aplicado IS NOT NULL)",
+            name="ck_evaluaciones_geograficas_zona_coherente",
+        ),
+    )
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    marcaje_id: Mapped[int] = mapped_column(ForeignKey("marcajes_asistencia.id", ondelete="RESTRICT"), nullable=False)
+    lugar_detectado_id: Mapped[int | None] = mapped_column(ForeignKey("lugares_trabajo.id", ondelete="RESTRICT"), index=True)
+    distancia_m: Mapped[Decimal | None] = mapped_column(Numeric(10, 2))
+    radio_m_aplicado: Mapped[Decimal | None] = mapped_column(Numeric(8, 2))
+    estado_geocerca: Mapped[str] = mapped_column(String(30), nullable=False, index=True)
+    estado_precision: Mapped[str] = mapped_column(String(30), nullable=False, index=True)
+    max_precision_m_aplicada: Mapped[Decimal] = mapped_column(Numeric(8, 2), nullable=False)
+    regla_version: Mapped[str] = mapped_column(String(30), nullable=False)
+    evaluada_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    marcaje: Mapped[MarcajeAsistencia] = relationship(back_populates="evaluacion_geografica")
+    lugar_detectado: Mapped[LugarTrabajo | None] = relationship()
+
+
+class IncidenciaAsistencia(Base):
+    __tablename__ = "incidencias_asistencia"
+    __table_args__ = (
+        UniqueConstraint("marcaje_id", "tipo", name="uq_incidencias_asistencia_marcaje_tipo"),
+        CheckConstraint("estado IN ('PENDIENTE','RESUELTA','DESCARTADA')", name="ck_incidencias_asistencia_estado"),
+    )
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    marcaje_id: Mapped[int] = mapped_column(ForeignKey("marcajes_asistencia.id", ondelete="RESTRICT"), nullable=False, index=True)
+    tipo: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
+    estado: Mapped[str] = mapped_column(String(20), nullable=False, default="PENDIENTE", server_default="PENDIENTE", index=True)
+    detalle: Mapped[str | None] = mapped_column(Text)
+    resuelto_por_id: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id", ondelete="RESTRICT"))
+    resuelto_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    comentario_resolucion: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    marcaje: Mapped[MarcajeAsistencia] = relationship(back_populates="incidencias")
+    resuelto_por: Mapped["Usuario | None"] = relationship(foreign_keys=[resuelto_por_id])
+
+
+class CorreccionMarcaje(Base):
+    __tablename__ = "correcciones_marcaje"
+    __table_args__ = (CheckConstraint("valor_original <> valor_corregido", name="ck_correcciones_marcaje_valores_distintos"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    marcaje_id: Mapped[int] = mapped_column(ForeignKey("marcajes_asistencia.id", ondelete="RESTRICT"), nullable=False, index=True)
+    campo: Mapped[str] = mapped_column(String(80), nullable=False)
+    valor_original: Mapped[str] = mapped_column(Text, nullable=False)
+    valor_corregido: Mapped[str] = mapped_column(Text, nullable=False)
+    corregido_por_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id", ondelete="RESTRICT"), nullable=False, index=True)
+    motivo: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    marcaje: Mapped[MarcajeAsistencia] = relationship(back_populates="correcciones")
+    corregido_por: Mapped["Usuario"] = relationship(foreign_keys=[corregido_por_id])
 
 
 from app.models.identity import Trabajador, Usuario  # noqa: E402,F401

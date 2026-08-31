@@ -2,6 +2,6 @@
 
 La geolocalización es sensible. [CONFIRMADO] Se solicita únicamente en cada `ENTRADA` o `SALIDA`, nunca mediante tracking continuo. La hora del servidor es autoritativa. El backend evaluará la captura contra el radio configurable de la zona; un evento fuera de rango no se descarta y genera incidencia/revisión.
 
-[PROPUESTO] Persistir timestamp, precisión y lugar esperado; separar coordenada capturada de la decisión `dentro_de_rango`; usar una fórmula documentada y conservar versión de la regla/radio. HTTPS es requisito del navegador/producción.
+[IMPLEMENTADO 4B-1] El modelo conserva latitud, longitud, precisión y timestamp opcional capturado, separados de zona, distancia, radio y resultado derivados. El servicio usa Haversine, zona activa configurada más cercana y versión de regla. HTTPS seguirá siendo requisito de la futura captura web.
 
-[CONFIRMADO] El acceso a GPS será restringido y se minimizará su exposición. [PENDIENTE] base legal, aviso/consentimiento, precisión máxima aceptada, retención exacta, alcance por rol y tratamiento de dispositivos sin GPS. Nunca incluir coordenadas exactas en logs generales ni UI no autorizada.
+[CONFIRMADO] GPS será obligatorio para marcar; coordenadas inválidas, `0,0` y precisión no positiva se rechazan. Más de 100 m se registra con `GPS_BAJA_PRECISION`; fuera de rango también se registra. [PENDIENTE] base legal, aviso/consentimiento, retención exacta y alcance UI para coordenadas. Nunca incluir coordenadas exactas en logs generales ni UI no autorizada.

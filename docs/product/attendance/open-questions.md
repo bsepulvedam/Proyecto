@@ -1,9 +1,9 @@
 # Preguntas abiertas de Asistencia
 
-- [PENDIENTE] ¿Cuál es el intervalo mínimo configurable entre entrada y salida?
 - [PENDIENTE] ¿Cómo se define que alguien debía asistir?
 - [PENDIENTE] ¿Qué fuente entrega la hora esperada necesaria para calcular la tolerancia configurable de 10 minutos?
-- [PENDIENTE] ¿Qué precisión GPS mínima, reglas offline y excepciones se aceptan? El radio ya es configurable por zona.
+- [CONFIRMADO] Intervalo mínimo 5 minutos y umbral de baja precisión GPS 100 m, ambos configurables.
+- [PENDIENTE] ¿Qué reglas offline, fraude y excepciones se aceptan?
 - [PENDIENTE] ¿Quién revisa incidencias/justificaciones y en qué plazo?
-- [PENDIENTE] ¿Cuál es el alcance de JEFATURA por equipo/lugar y quién puede ver coordenadas exactas?
+- [CONFIRMADO MVP] ADMIN y JEFATURA tendrán revisión completa inicial. [PENDIENTE] alcance posterior por equipo/lugar y detalle de exposición de coordenadas.
 - [PENDIENTE] ¿Cuál es la retención exacta de marcajes, GPS y documentos?

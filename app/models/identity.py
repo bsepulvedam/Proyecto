@@ -66,6 +66,7 @@ class Trabajador(Base):
     empresa: Mapped["Empresa | None"] = relationship(back_populates="trabajadores")
     asignaciones_lugar: Mapped[list["AsignacionTrabajadorLugar"]] = relationship(back_populates="trabajador")
     justificaciones: Mapped[list["JustificacionInasistencia"]] = relationship(back_populates="trabajador")
+    sesiones_trabajo: Mapped[list["SesionTrabajo"]] = relationship(back_populates="trabajador")
 
 
 class SesionUsuario(Base):
@@ -83,4 +84,4 @@ class SesionUsuario(Base):
 
 
 from app.models.empresa import Empresa  # noqa: E402,F401
-from app.models.attendance import AsignacionTrabajadorLugar, JustificacionInasistencia  # noqa: E402,F401
+from app.models.attendance import AsignacionTrabajadorLugar, JustificacionInasistencia, SesionTrabajo  # noqa: E402,F401

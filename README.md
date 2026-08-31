@@ -16,7 +16,7 @@ Actualmente están implementados:
 - creación, revisión, confirmación e historial de órdenes de trabajo;
 - base estructural de Asistencia: lugares, asignaciones históricas, turnos, calendario personal y justificaciones.
 
-La captura GPS y los marcajes reales de asistencia todavía no están implementados. Consulta [Estado del módulo Asistencia](#estado-del-módulo-asistencia) para conocer el alcance exacto.
+Asistencia 4B-1 implementa el modelo y servicio interno de sesiones, marcajes y evidencia GPS; la captura desde navegador y la interfaz funcional de marcaje todavía no están implementadas. Consulta [Estado del módulo Asistencia](#estado-del-módulo-asistencia) para conocer el alcance exacto.
 
 ## Tecnologías
 
@@ -140,6 +140,8 @@ Edita tu copia de `.env` sin compartirla ni subirla a Git. Las variables actuale
 | `COOKIE_SECURE` | Exige HTTPS para enviar cookies cuando está activo. |
 | `SESSION_HOURS` | Duración de las sesiones. |
 | `APP_TIMEZONE` | Zona horaria operacional, normalmente `America/Santiago`. |
+| `ATTENDANCE_MIN_SESSION_MINUTES` | Intervalo mínimo entre ENTRADA y SALIDA; valor confirmado: 5. |
+| `ATTENDANCE_MAX_GPS_ACCURACY_METERS` | Umbral que genera incidencia de baja precisión; valor confirmado: 100. |
 | `JUSTIFICATION_STORAGE_DIR` | Directorio privado de archivos de justificación. |
 | `JUSTIFICATION_MAX_MB` | Tamaño máximo permitido para cada archivo. El valor de referencia actual es 8 MB. |
 | `PRODUCT_IMPORT_FILE` | Ruta opcional al Excel legacy usado por importación y stock transitorio. |
@@ -176,7 +178,7 @@ python -m alembic upgrade head
 El HEAD actual del código es:
 
 ```text
-20260830_06
+20260831_07
 ```
 
 En un clon nuevo, `alembic upgrade head` crea y actualiza todas las tablas hasta esa revisión.
@@ -275,15 +277,19 @@ El ADMIN no puede recuperar ni visualizar la contraseña personal del usuario. L
 - creación y listado personal de justificaciones;
 - carga privada y validada de documentos;
 - estados `PENDIENTE`, `APROBADA` y `RECHAZADA`.
+- modelo de sesiones con múltiples jornadas por día operacional;
+- eventos únicos `ENTRADA`/`SALIDA` con hora oficial del servidor;
+- evidencia GPS separada de evaluación geográfica;
+- selección automática de zona configurada más cercana, distancia y radio aplicados;
+- incidencias `FUERA_RANGO` y `GPS_BAJA_PRECISION`;
+- servicio transaccional interno sin ruta web pública.
 
 ### Todavía no implementado
 
-- captura GPS real;
 - geolocalización del navegador;
-- validación geográfica;
-- cálculo Haversine o geocercas;
-- marcajes reales;
-- sesiones de trabajo y eventos `ENTRADA`/`SALIDA`;
+- endpoint y botón funcional para crear marcajes desde la interfaz;
+- mapas o visualización de coordenadas;
+- workflow administrativo de revisión/corrección;
 - alertas de asistencia;
 - planificación diaria previa;
 - supervisión completa de JEFATURA;
@@ -295,10 +301,10 @@ La ruta `/mi-asistencia/registrar` prepara la experiencia y explica el flujo, pe
 
 - `DIURNO` y `NOCTURNO` son turnos, no tipos de marcaje.
 - Un trabajador podrá tener múltiples sesiones en un mismo día operacional y abrir otra después de cerrar la anterior, incluido un turno nocturno que cruce medianoche.
-- Cada sesión tendrá conceptualmente `ENTRADA` y `SALIDA`; se impedirán duplicados y una salida inmediatamente posterior, con intervalo mínimo todavía configurable y pendiente de valor definitivo.
+- Cada sesión tiene `ENTRADA` y `SALIDA`; se impiden duplicados y una salida antes de 5 minutos. El valor está centralizado en `ATTENDANCE_MIN_SESSION_MINUTES`.
 - Base y Taller de La Pintana son conceptos diferentes aunque compartan o tengan una ubicación física cercana.
 - La hora del servidor será autoritativa y `APP_TIMEZONE` determinará el día operacional.
-- Entrada y salida usarán ubicación solo al marcar; el backend evaluará el radio configurable. Un evento fuera de rango se conservará y generará revisión.
+- Entrada y salida usan evidencia de ubicación obligatoria en el servicio; el backend evalúa el radio configurable. Fuera de rango y precisión mayor a 100 m se conservan como incidencias, no como rechazo.
 - No se genera una ausencia automática por falta de marcaje: primero será `PENDIENTE_DE_REVISION` y solo podrá calcularse atraso con una hora esperada válida.
 - Actualmente no existe planificación diaria que determine que una persona debía asistir.
 - Un día neutro en el calendario significa “sin registros”, no “ausente”.
@@ -330,7 +336,7 @@ python -m compileall -q app tests alembic
 python -m unittest discover -s tests -v
 ```
 
-La validación de Asistencia 4A ejecutó **99 pruebas: 99 OK**. Incluye los 92 tests heredados, aislamiento del dashboard, configuración fail-closed y baseline estático de migraciones. La evidencia resumida está en [Baseline técnico de Asistencia 4A](docs/audit/attendance-4a-baseline.md).
+La validación final de Asistencia 4B-1 ejecutó **118 pruebas: 118 OK**. Incluye 100 pruebas heredadas —contando la regresión de paridad ORM–Alembic de Inventario— y 18 nuevas para sesiones, tiempo, GPS, geocerca, ownership, rollback e integridad histórica de migraciones.
 
 La URL SQLite del comando impide que la suite use accidentalmente PostgreSQL local. Las pruebas que necesitan persistencia crean su propio esquema/sesión desechable y restauran overrides. `APP_ENV=test` y `AUTH_ENFORCED=false` son exclusivos del proceso de test y no son una recomendación para ejecutar la aplicación real.
 

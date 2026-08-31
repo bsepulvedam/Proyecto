@@ -2,7 +2,7 @@
 
 ## Propósito y estado
 
-Boliklor centraliza operaciones internas. Hoy es un monolito FastAPI con UI Jinja2, endpoints JSON, SQLAlchemy y PostgreSQL. Implementa identidad, trabajadores básicos, inventario y estructura inicial de asistencia; no tiene marcajes GPS reales ni evidencia de infraestructura productiva.
+Boliklor centraliza operaciones internas. Hoy es un monolito FastAPI con UI Jinja2, endpoints JSON, SQLAlchemy y PostgreSQL. Implementa identidad, trabajadores básicos, inventario y el dominio persistente inicial de sesiones/marcajes de asistencia; todavía no captura GPS desde navegador ni tiene evidencia de infraestructura productiva.
 
 ## Arquitectura actual
 
@@ -52,7 +52,7 @@ Cada módulo tendrá contratos de aplicación, servicios y persistencia propios;
 
 ## Infraestructura, observabilidad y pruebas
 
-No hay artefactos de Docker, CI/CD, proxy, TLS, backups o monitoreo versionados. `/health` solo confirma que el proceso responde. [IMPLEMENTADO] Python 3.14.7 y la `.venv` local ejecutaron 99 tests aislados correctamente en Asistencia 4A. [PENDIENTE] Las migraciones todavía requieren validación sobre una PostgreSQL desechable autorizada.
+No hay artefactos de Docker, CI/CD, proxy, TLS, backups o monitoreo versionados. `/health` solo confirma que el proceso responde. [IMPLEMENTADO] La suite local usa entornos aislados y cubre el servicio de marcajes 4B-1. [CONFIRMADO GATE 4B-1 2026-08-31] Upgrade desde cero, downgrade/re-upgrade, constraints, índice parcial, locks, concurrencia y rollback se validaron sobre `boliklor_ot_test`. [CONFIRMADO 2026-08-31] La metadata ORM explicita los nombres históricos de los índices de detalle de Inventario y `alembic check` no detecta operaciones nuevas.
 
 ## Documentación relacionada
 

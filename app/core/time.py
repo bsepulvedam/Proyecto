@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from app.core.config import app_timezone_name
@@ -18,3 +18,7 @@ def app_timezone() -> ZoneInfo:
 def local_datetime(value: datetime) -> datetime:
     aware = value if value.tzinfo is not None else value.replace(tzinfo=timezone.utc)
     return aware.astimezone(app_timezone())
+
+
+def operational_date(value: datetime) -> date:
+    return local_datetime(value).date()

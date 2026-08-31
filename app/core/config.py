@@ -68,6 +68,25 @@ def app_timezone_name() -> str:
     return os.getenv("APP_TIMEZONE", "America/Santiago").strip() or "America/Santiago"
 
 
+def _positive_int(name: str, default: int) -> int:
+    raw_value = os.getenv(name, str(default)).strip()
+    try:
+        value = int(raw_value)
+    except ValueError as exc:
+        raise RuntimeError(f"{name} debe ser un entero positivo") from exc
+    if value <= 0:
+        raise RuntimeError(f"{name} debe ser un entero positivo")
+    return value
+
+
+def attendance_min_session_minutes() -> int:
+    return _positive_int("ATTENDANCE_MIN_SESSION_MINUTES", 5)
+
+
+def attendance_max_gps_accuracy_meters() -> int:
+    return _positive_int("ATTENDANCE_MAX_GPS_ACCURACY_METERS", 100)
+
+
 def justification_storage_dir() -> str:
     return os.getenv("JUSTIFICATION_STORAGE_DIR", "storage/justificaciones").strip()
 

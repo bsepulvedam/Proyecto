@@ -9,6 +9,7 @@ from pydantic import ValidationError
 
 from app.main import app
 from app.models.empresa import Empresa
+from app.models.movimiento_inventario import DetalleMovimientoInventario
 from app.models.producto import Producto
 from app.models.unidad_medida import UnidadMedida
 from app.schemas.inventario import ProductoCreate
@@ -91,6 +92,22 @@ class InventoryBaseTests(unittest.TestCase):
         )
         self.assertTrue(Producto.__table__.c.unidad_contenido_id.nullable)
         self.assertFalse(Producto.__table__.c.empresa_id.nullable)
+
+    def test_movement_detail_indexes_match_historical_schema(self) -> None:
+        indexes = {
+            index.name: index
+            for index in DetalleMovimientoInventario.__table__.indexes
+        }
+        expected = {
+            "ix_detalle_movimientos_movimiento_id": "movimiento_id",
+            "ix_detalle_movimientos_producto_id": "producto_id",
+        }
+        self.assertEqual(set(indexes), set(expected))
+        for name, column_name in expected.items():
+            index = indexes[name]
+            self.assertEqual([column.name for column in index.columns], [column_name])
+            self.assertFalse(index.unique)
+            self.assertIsNone(index.dialect_options["postgresql"].get("where"))
 
     def test_product_schema_rejects_invalid_numeric_values(self) -> None:
         common = {

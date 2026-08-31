@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint, func
+from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, Index, Integer, Numeric, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database.base import Base
@@ -39,11 +39,13 @@ class DetalleMovimientoInventario(Base):
     __table_args__ = (
         CheckConstraint("cantidad_presentaciones > 0", name="ck_detalle_movimientos_cantidad_positiva"),
         CheckConstraint("factor_conversion_snapshot > 0", name="ck_detalle_movimientos_factor_positivo"),
+        Index("ix_detalle_movimientos_movimiento_id", "movimiento_id"),
+        Index("ix_detalle_movimientos_producto_id", "producto_id"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    movimiento_id: Mapped[int] = mapped_column(ForeignKey("movimientos_inventario.id", ondelete="CASCADE"), nullable=False, index=True)
-    producto_id: Mapped[int] = mapped_column(ForeignKey("productos.id", ondelete="RESTRICT"), nullable=False, index=True)
+    movimiento_id: Mapped[int] = mapped_column(ForeignKey("movimientos_inventario.id", ondelete="CASCADE"), nullable=False)
+    producto_id: Mapped[int] = mapped_column(ForeignKey("productos.id", ondelete="RESTRICT"), nullable=False)
     cantidad_presentaciones: Mapped[Decimal] = mapped_column(Numeric(14, 3), nullable=False)
     unidad_presentacion_snapshot: Mapped[str] = mapped_column(String(30), nullable=False)
     factor_conversion_snapshot: Mapped[Decimal] = mapped_column(Numeric(14, 4), nullable=False)

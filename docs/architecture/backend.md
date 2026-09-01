@@ -2,7 +2,7 @@
 
 ## Current state
 
-FastAPI compone routers HTML y JSON. SQLAlchemy 2 y sesiones síncronas acceden a PostgreSQL. Services encapsulan autenticación, administración, asistencia, catálogo, importación, movimientos, stock y OT. Varias rutas aún parsean formularios y construyen respuestas directamente.
+FastAPI compone routers HTML y JSON. SQLAlchemy 2 y sesiones síncronas acceden a PostgreSQL. Services encapsulan autenticación, administración, asistencia, catálogo, importación, movimientos, stock y OT. [IMPLEMENTADO 4B-2A] la proyección mensual de Asistencia vive en `attendance_calendar_service.py` y consulta únicamente el Worker autenticado. Varias rutas aún parsean formularios y construyen respuestas directamente.
 
 ## Gaps
 

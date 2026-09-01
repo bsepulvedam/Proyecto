@@ -1,1 +1,74 @@
-{% extends "base.html" %}{% block title %}Días trabajados | BOLIKLOR{% endblock %}{% block body %}{% include "partials/sidebar.html" %}<div class="main-wrapper">{% include "partials/topbar.html" %}<main class="content"><section class="attendance-hero"><p class="section-kicker">Mi asistencia</p><h2>{{ worker.nombres }}, tu calendario personal</h2><p>Un día neutro significa únicamente que no hay registros; no representa ausencia.</p></section><div class="calendar-nav"><a href="?year={{ previous.year }}&month={{ previous.month }}">← Anterior</a><strong>{{ '%02d'|format(month) }}/{{ year }}</strong><a href="?year={{ following.year }}&month={{ following.month }}">Siguiente →</a></div><section class="month-calendar"><div class="calendar-weekdays">{% for name in ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'] %}<span>{{ name }}</span>{% endfor %}</div>{% for week in weeks %}<div class="calendar-week">{% for day in week %}<div class="calendar-day{% if not day %} is-empty{% elif entries.get(day) %} has-justification{% endif %}">{% if day %}<strong>{{ day }}</strong>{% if entries.get(day) %}<small>Justificación<br>{{ entries[day].estado }}</small>{% else %}<small>Sin registro</small>{% endif %}{% endif %}</div>{% endfor %}</div>{% endfor %}</section></main></div>{% endblock %}
+{% extends "base.html" %}
+{% block title %}Días trabajados | BOLIKLOR{% endblock %}
+{% block body %}
+{% include "partials/sidebar.html" %}
+<div class="main-wrapper">
+  {% include "partials/topbar.html" %}
+  <main class="content">
+    <section class="attendance-hero">
+      <p class="section-kicker">Mi asistencia</p>
+      <h2>{{ worker.nombres }}, tu calendario personal</h2>
+      <p>Una fecha se considera trabajada cuando tiene al menos una sesión cerrada con entrada y salida. Un día neutro no representa ausencia.</p>
+    </section>
+
+    <div class="calendar-legend" aria-label="Estados del calendario">
+      <span><i class="calendar-swatch calendar-swatch--worked"></i> Trabajado</span>
+      <span><i class="calendar-swatch calendar-swatch--review"></i> Revisión o tardanza</span>
+      <span><i class="calendar-swatch calendar-swatch--out-of-range"></i> Fuera de rango</span>
+      <span><i class="calendar-swatch calendar-swatch--neutral"></i> Sin estado determinable</span>
+    </div>
+
+    <div class="calendar-nav">
+      <a href="?year={{ previous.year }}&month={{ previous.month }}">← Anterior</a>
+      <strong>{{ '%02d'|format(month) }}/{{ year }}</strong>
+      <a href="?year={{ following.year }}&month={{ following.month }}">Siguiente →</a>
+    </div>
+
+    <section class="month-calendar" aria-label="Calendario de asistencia {{ '%02d'|format(month) }}/{{ year }}">
+      <div class="calendar-weekdays">
+        {% for name in ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'] %}<span>{{ name }}</span>{% endfor %}
+      </div>
+      {% for week in weeks %}
+      <div class="calendar-week">
+        {% for day in week %}
+        {% if day %}
+        {% set item = days[day] %}
+        <article class="calendar-day calendar-day--{{ item.status|lower|replace('_', '-') }}" aria-label="{{ day }}: {{ item.label }}">
+          <strong>{{ day }}</strong>
+          <small>{{ item.label }}</small>
+          {% if item.session_count %}
+          <span class="calendar-session-count">{{ item.session_count }} {{ 'sesión' if item.session_count == 1 else 'sesiones' }}</span>
+          {% endif %}
+          {% if item.sessions or item.justifications %}
+          <details class="calendar-day-detail">
+            <summary>Ver detalle</summary>
+            {% for session in item.sessions %}
+            <div class="calendar-session-detail">
+              <b>{{ session.shift_name }} ({{ session.shift_code }})</b>
+              <span>Entrada: {{ session.entry_time.strftime('%H:%M') if session.entry_time else 'Pendiente' }}</span>
+              <span>Salida: {{ session.exit_time.strftime('%H:%M') if session.exit_time else 'Pendiente' }}</span>
+              <span>Duración: {{ session.duration_minutes ~ ' min' if session.duration_minutes is not none else 'Pendiente' }}</span>
+              {% if session.is_late %}<span>Tardanza según horario base</span>{% endif %}
+              {% if session.incident_types %}<span>Incidencias: {{ session.incident_types|join(', ') }}</span>{% endif %}
+            </div>
+            {% endfor %}
+            {% for justification in item.justifications %}
+            <div class="calendar-session-detail">
+              <b>Justificación</b>
+              <span>{{ justification.kind }} · {{ justification.status }}</span>
+            </div>
+            {% endfor %}
+          </details>
+          {% endif %}
+        </article>
+        {% else %}
+        <div class="calendar-day is-empty" aria-hidden="true"></div>
+        {% endif %}
+        {% endfor %}
+      </div>
+      {% endfor %}
+    </section>
+    <p class="calendar-policy-note">Rojo se reserva para una ausencia confirmada y gris para un día no laboral. Sin planificación suficiente, ninguno se infiere automáticamente.</p>
+  </main>
+</div>
+{% endblock %}

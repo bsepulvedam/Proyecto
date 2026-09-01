@@ -1,1 +1,70 @@
-{% extends "base.html" %}{% block title %}Registrar asistencia | BOLIKLOR{% endblock %}{% block body %}{% include "partials/sidebar.html" %}<div class="main-wrapper">{% include "partials/topbar.html" %}<main class="content"><section class="attendance-hero"><p class="section-kicker">Próxima fase</p><h2>Registrar asistencia</h2><p>Seleccionarás turno y luego registrarás eventos distintos: inicio en base y llegada al lugar de trabajo.</p></section><div class="shift-grid">{% for shift in shifts %}<article class="shift-card"><i class="bi {{ 'bi-sun' if shift.codigo == 'DIURNO' else 'bi-moon-stars' }}"></i><h3>{{ shift.nombre }}</h3><p>{{ shift.codigo }}</p><button class="btn btn-brand" disabled>Registro GPS próximamente</button></article>{% endfor %}</div><div class="alert alert-info mt-3">Esta pantalla no solicita ubicación ni crea marcajes todavía.</div></main></div>{% endblock %}
+{% extends "base.html" %}
+{% block title %}Registrar asistencia | BOLIKLOR{% endblock %}
+{% block body %}
+{% include "partials/sidebar.html" %}
+<div class="main-wrapper">
+  {% include "partials/topbar.html" %}
+  <main class="content">
+    <section class="attendance-hero">
+      <p class="section-kicker">Marcaje personal</p>
+      <h2>Registrar asistencia</h2>
+      <p>La hora oficial la registra el servidor. Tu ubicación se solicitará solamente al pulsar el botón de marcaje.</p>
+    </section>
+
+    {% for message in messages %}
+    <div class="alert alert-{{ message.level }}" role="status">{{ message.text }}</div>
+    {% endfor %}
+    {% if error %}
+    <div class="alert alert-danger" role="alert">{{ error }}</div>
+    {% endif %}
+
+    <section class="attendance-register-grid" aria-label="Estado de asistencia">
+      <article class="attendance-status-card">
+        <p class="section-kicker">Trabajador autenticado</p>
+        <h3>{{ worker.nombres }} {{ worker.apellidos }}</h3>
+        <dl class="attendance-status-list">
+          <div><dt>Sesión</dt><dd>{{ 'ABIERTA' if state.has_open_session else 'SIN SESIÓN ABIERTA' }}</dd></div>
+          {% if state.has_open_session %}
+          <div><dt>Turno</dt><dd>{{ state.shift_name }} ({{ state.shift_code }})</dd></div>
+          <div><dt>Entrada</dt><dd>{{ entry_time.strftime('%d-%m-%Y %H:%M') if entry_time else 'No disponible' }}</dd></div>
+          {% else %}
+          <div><dt>Acción disponible</dt><dd>MARCAR ENTRADA</dd></div>
+          {% endif %}
+        </dl>
+      </article>
+
+      <form id="attendance-mark-form" class="attendance-action-card" method="post" action="{{ url_for('attendance_register_submit') }}">
+        <input type="hidden" name="csrf_token" value="{{ request.cookies.get('boliklor_csrf', '') }}">
+        <input type="hidden" name="tipo" value="{{ 'SALIDA' if state.has_open_session else 'ENTRADA' }}">
+        <input type="hidden" name="latitud" data-gps-field="latitude">
+        <input type="hidden" name="longitud" data-gps-field="longitude">
+        <input type="hidden" name="precision_m" data-gps-field="accuracy">
+        <input type="hidden" name="capturada_at" data-gps-field="captured-at">
+
+        {% if state.has_open_session %}
+        <div class="attendance-action-icon"><i class="bi bi-box-arrow-right" aria-hidden="true"></i></div>
+        <h3>Marcar salida</h3>
+        <p>Se cerrará tu sesión abierta del turno {{ state.shift_name }}. No puedes elegir otra sesión.</p>
+        <button class="btn btn-brand w-100" type="submit" data-idle-label="Marcar salida">Marcar salida</button>
+        {% else %}
+        <div class="attendance-action-icon"><i class="bi bi-geo-alt" aria-hidden="true"></i></div>
+        <h3>Marcar entrada</h3>
+        <label class="field-label" for="turno_id">Turno</label>
+        <select class="form-select mb-3" id="turno_id" name="turno_id" required>
+          <option value="">Selecciona un turno</option>
+          {% for shift in shifts %}
+          <option value="{{ shift.id }}"{% if selected_shift_id == shift.id %} selected{% endif %}>{{ shift.nombre }} ({{ shift.codigo }})</option>
+          {% endfor %}
+        </select>
+        <button class="btn btn-brand w-100" type="submit" data-idle-label="Marcar entrada">Marcar entrada</button>
+        {% endif %}
+        <p class="attendance-location-note"><i class="bi bi-shield-check" aria-hidden="true"></i> Sin seguimiento continuo. La geocerca se evalúa en el servidor.</p>
+        <p class="attendance-live-status" role="status" aria-live="polite" data-attendance-status></p>
+      </form>
+    </section>
+  </main>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', path='/js/attendance-register.js') }}"></script>
+{% endblock %}

@@ -220,9 +220,36 @@ a { color: inherit; }
 .calendar-day small { display: block; margin-top: .5rem; color: var(--color-gray-400); }
 .calendar-day.has-justification { background: #e7f1ff; color: #225b91; }
 .calendar-day.is-empty { background: var(--color-gray-50); }
+.calendar-legend { display: flex; flex-wrap: wrap; gap: .55rem 1rem; margin: 0 0 .75rem; padding: .75rem 1rem; border-radius: 10px; background: var(--color-white); color: var(--color-gray-700); font-size: .78rem; }
+.calendar-legend span { display: inline-flex; align-items: center; gap: .35rem; }
+.calendar-swatch { width: .75rem; height: .75rem; border: 1px solid rgba(0,0,0,.12); border-radius: 50%; }
+.calendar-swatch--worked, .calendar-day--trabajado { background: #e0f4e7; color: #17633a; }
+.calendar-swatch--review, .calendar-day--revision { background: #fff4cc; color: #735700; }
+.calendar-swatch--out-of-range, .calendar-day--fuera-rango { background: #ffe4cc; color: #8a3f00; }
+.calendar-swatch--neutral, .calendar-day--neutral { background: var(--color-white); color: var(--color-gray-700); }
+.calendar-day--ausencia { background: #fbe0e2; color: #8b202a; }
+.calendar-day--no-laboral { background: var(--color-gray-100); color: var(--color-gray-500); }
+.calendar-day > small { color: inherit; font-weight: 650; }
+.calendar-session-count { display: inline-block; margin-top: .4rem; font-size: .68rem; font-weight: 750; }
+.calendar-day-detail { margin-top: .45rem; font-size: .7rem; }
+.calendar-day-detail summary { cursor: pointer; font-weight: 750; }
+.calendar-session-detail { display: grid; gap: .12rem; margin-top: .4rem; padding-top: .4rem; border-top: 1px solid rgba(0,0,0,.12); }
+.calendar-policy-note { margin: .75rem 0 0; color: var(--color-gray-500); font-size: .78rem; }
 .shift-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; }
 .shift-card { padding: 1.5rem; border-radius: var(--radius-md); background: white; box-shadow: var(--shadow-soft); text-align: center; }
 .shift-card > i { color: var(--color-yellow-dark); font-size: 2rem; }
+.attendance-register-grid { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: 1rem; }
+.attendance-status-card, .attendance-action-card { padding: clamp(1.25rem, 4vw, 2rem); border-radius: var(--radius-md); background: var(--color-white); box-shadow: var(--shadow-soft); }
+.attendance-status-card h3, .attendance-action-card h3 { margin: 0 0 1rem; font-size: 1.35rem; font-weight: 800; }
+.attendance-status-list { display: grid; gap: .7rem; margin: 0; }
+.attendance-status-list div { padding: .8rem; border-radius: 9px; background: var(--color-gray-50); }
+.attendance-status-list dt { color: var(--color-gray-400); font-size: .68rem; text-transform: uppercase; letter-spacing: .04em; }
+.attendance-status-list dd { margin: .15rem 0 0; color: var(--color-black); font-weight: 750; }
+.attendance-action-card { border-top: 4px solid var(--color-yellow); }
+.attendance-action-card > p { color: var(--color-gray-700); }
+.attendance-action-icon { width: 54px; height: 54px; display: grid; place-items: center; margin-bottom: 1rem; border-radius: 14px; background: rgba(244,196,0,.18); color: #725b00; font-size: 1.5rem; }
+.attendance-location-note { display: flex; gap: .45rem; margin: 1rem 0 0; font-size: .78rem; }
+.attendance-live-status { min-height: 1.25rem; margin: .55rem 0 0 !important; color: var(--color-info) !important; font-size: .82rem; font-weight: 650; }
 .confirmation-shell { min-height: calc(100vh - 82px); display: grid; place-items: center; }
 .confirmation-card { width: min(100%, 700px); padding: clamp(1.5rem, 5vw, 3rem); border-top: 5px solid var(--color-yellow); border-radius: var(--radius-lg); background: var(--color-white); box-shadow: var(--shadow-soft); text-align: center; }
 .confirmation-card h2 { margin: 0; font-size: 1.6rem; font-weight: 800; }
@@ -247,6 +274,7 @@ a { color: inherit; }
 @media (max-width: 575.98px) {
   .admin-form { grid-template-columns: 1fr; }
   .shift-grid { grid-template-columns: 1fr; }
+  .attendance-register-grid { grid-template-columns: 1fr; }
   .calendar-day { min-height: 66px; padding: .3rem; }
   .calendar-day small { font-size: .6rem; }
   .topbar { height: 72px; }

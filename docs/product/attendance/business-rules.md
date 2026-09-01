@@ -14,4 +14,11 @@
 - [CONFIRMADO] colores futuros: verde correcto, rojo ausencia confirmada, amarillo atraso/incidencia, naranja fuera de rango, gris no laboral y neutral futuro/sin estado.
 - [CONFIRMADO] una exportación mensual futura contemplará Excel y PDF. No se calculan remuneraciones; la futura integración podrá consumir `VALOR_DIA`/`TOTAL_PAGO` sin convertir Asistencia en dueña de remuneraciones.
 - [IMPLEMENTADO 4B-1] eventos y evidencia original no se sobrescriben; existe estructura para correcciones auditadas y evaluación reproducible/versionada.
-- [PENDIENTE] endpoint/UI, fuente de horario esperado, offline/fraude, workflow de corrección/aprobación y retención GPS.
+- [IMPLEMENTADO 4B-2] endpoint/UI personal con ownership desde sesión, CSRF, turno activo solo en ENTRADA, sesión abierta automática en SALIDA y GPS solicitado bajo demanda.
+- [IMPLEMENTADO 4B-2A] una fecha se clasifica como trabajada si contiene al menos una sesión cerrada con entrada y salida válidas. Múltiples sesiones conservan detalle pero no multiplican la fecha trabajada ni generan pagos.
+- [IMPLEMENTADO 4B-2A] una sesión abierta queda en revisión y no cuenta como fecha completamente trabajada. Una incidencia pendiente mantiene el hecho trabajado y cambia el estado visual; `FUERA_RANGO` tiene clasificación naranja.
+- [CONFIRMADO] horario base diurno `09:00`–`18:00`, jornada corrida de referencia de 9 horas; horario base nocturno `19:00`–`06:00` del día siguiente sin duración fija adicional. Los valores están centralizados en configuración.
+- [IMPLEMENTADO 4B-2A] la tolerancia configurable inicial es 10 minutos y sólo se deriva cuando el turno seleccionado aporta una hora base aplicable. El atraso no rechaza ni altera el marcaje real.
+- [CONFIRMADO] una salida diurna entre `18:01` y `18:59` sigue siendo normal. No se calculan horas extra, recargos, días extra ni remuneración en esta fase.
+- [PENDIENTE 4B-3] distinguir y aprobar jornadas pagables, incluido doble turno real; `ATTENDANCE_DAILY_RATE_CLP=30000` es provisional y no se usa todavía para totales o pagos.
+- [PENDIENTE] fuente de horario esperado, offline/fraude, workflow de corrección/aprobación y retención GPS.

@@ -2,7 +2,7 @@
 
 ## Propósito y estado
 
-Boliklor centraliza operaciones internas. Hoy es un monolito FastAPI con UI Jinja2, endpoints JSON, SQLAlchemy y PostgreSQL. Implementa identidad, trabajadores básicos, inventario y el dominio persistente inicial de sesiones/marcajes de asistencia; todavía no captura GPS desde navegador ni tiene evidencia de infraestructura productiva.
+Boliklor centraliza operaciones internas. Hoy es un monolito FastAPI con UI Jinja2, endpoints JSON, SQLAlchemy y PostgreSQL. Implementa identidad, trabajadores básicos, inventario, marcajes de asistencia con captura GPS puntual y un calendario personal derivado de sesiones reales; todavía no tiene evidencia de infraestructura productiva.
 
 ## Arquitectura actual
 
@@ -20,6 +20,8 @@ flowchart LR
 ```
 
 `app/main.py` compone routers. `app/web` atiende HTML, `app/api` expone JSON, `app/services` concentra una parte importante de las reglas y `app/models` representa persistencia. La separación es técnica, no todavía modular por dominio. La UI activa está en `app/templates`/`app/static`; `frontend/` es histórico.
+
+[IMPLEMENTADO 4B-2A] `attendance_calendar_service.py` proyecta sesiones, marcajes e incidencias por fecha operacional sin modificar la evidencia ni calcular remuneración. La ruta personal deriva el Worker autenticado y la plantilla sólo presenta el resultado, sin coordenadas GPS.
 
 ## Módulos y relaciones
 
@@ -52,7 +54,7 @@ Cada módulo tendrá contratos de aplicación, servicios y persistencia propios;
 
 ## Infraestructura, observabilidad y pruebas
 
-No hay artefactos de Docker, CI/CD, proxy, TLS, backups o monitoreo versionados. `/health` solo confirma que el proceso responde. [IMPLEMENTADO] La suite local usa entornos aislados y cubre el servicio de marcajes 4B-1. [CONFIRMADO GATE 4B-1 2026-08-31] Upgrade desde cero, downgrade/re-upgrade, constraints, índice parcial, locks, concurrencia y rollback se validaron sobre `boliklor_ot_test`. [CONFIRMADO 2026-08-31] La metadata ORM explicita los nombres históricos de los índices de detalle de Inventario y `alembic check` no detecta operaciones nuevas.
+No hay artefactos de Docker, CI/CD, proxy, TLS, backups o monitoreo versionados. `/health` solo confirma que el proceso responde. [IMPLEMENTADO] La suite local usa entornos aislados y cubre el servicio de marcajes 4B-1 y su flujo web seguro 4B-2. [CONFIRMADO GATE 4B-1 2026-08-31] Upgrade desde cero, downgrade/re-upgrade, constraints, índice parcial, locks, concurrencia y rollback se validaron sobre `boliklor_ot_test`. [CONFIRMADO 2026-08-31] La metadata ORM explicita los nombres históricos de los índices de detalle de Inventario y `alembic check` no detecta operaciones nuevas.
 
 ## Documentación relacionada
 

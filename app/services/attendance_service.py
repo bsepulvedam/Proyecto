@@ -1,4 +1,3 @@
-import calendar
 import uuid
 from datetime import date, datetime
 from decimal import Decimal
@@ -11,7 +10,12 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.core.config import justification_max_bytes, justification_storage_dir
 from app.database.session import PROJECT_ROOT
-from app.models.attendance import AsignacionTrabajadorLugar, JustificacionInasistencia, LugarTrabajo, Turno
+from app.models.attendance import (
+    AsignacionTrabajadorLugar,
+    JustificacionInasistencia,
+    LugarTrabajo,
+    Turno,
+)
 from app.models.identity import Trabajador, Usuario
 from app.services.auth_service import IdentityError
 
@@ -55,12 +59,6 @@ def list_justifications(db: Session, worker_id: int):
 
 def get_justification(db: Session, worker_id: int, item_id: int):
     return db.scalar(select(JustificacionInasistencia).where(JustificacionInasistencia.id == item_id, JustificacionInasistencia.trabajador_id == worker_id))
-
-
-def calendar_month(db: Session, worker_id: int, year: int, month: int):
-    items = db.scalars(select(JustificacionInasistencia).where(JustificacionInasistencia.trabajador_id == worker_id, JustificacionInasistencia.fecha >= date(year, month, 1), JustificacionInasistencia.fecha <= date(year, month, calendar.monthrange(year, month)[1]))).all()
-    by_day = {item.fecha.day: item for item in items}
-    return calendar.Calendar(firstweekday=0).monthdayscalendar(year, month), by_day
 
 
 async def store_upload(upload: UploadFile | None):

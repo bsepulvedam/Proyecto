@@ -16,7 +16,9 @@ Actualmente están implementados:
 - creación, revisión, confirmación e historial de órdenes de trabajo;
 - base estructural de Asistencia: lugares, asignaciones históricas, turnos, calendario personal y justificaciones.
 
-Asistencia 4B-1 implementa el modelo y servicio interno de sesiones, marcajes y evidencia GPS; la captura desde navegador y la interfaz funcional de marcaje todavía no están implementadas. Consulta [Estado del módulo Asistencia](#estado-del-módulo-asistencia) para conocer el alcance exacto.
+Asistencia 4B-1 implementa el modelo y servicio interno de sesiones, marcajes y evidencia GPS. Asistencia 4B-2 incorpora el flujo web protegido para ENTRADA/SALIDA y solicita geolocalización únicamente al pulsar el botón de marcaje. Consulta [Estado del módulo Asistencia](#estado-del-módulo-asistencia) para conocer el alcance exacto.
+
+Asistencia 4B-2A conecta el calendario personal con sesiones y marcajes reales. Una fecha se muestra como trabajada cuando contiene al menos una sesión cerrada con `ENTRADA` y `SALIDA`; varias sesiones conservan su detalle, pero cuentan como una sola fecha trabajada. Incidencias y fuera de rango cambian la clasificación visual sin borrar el hecho registrado.
 
 ## Tecnologías
 
@@ -142,6 +144,12 @@ Edita tu copia de `.env` sin compartirla ni subirla a Git. Las variables actuale
 | `APP_TIMEZONE` | Zona horaria operacional, normalmente `America/Santiago`. |
 | `ATTENDANCE_MIN_SESSION_MINUTES` | Intervalo mínimo entre ENTRADA y SALIDA; valor confirmado: 5. |
 | `ATTENDANCE_MAX_GPS_ACCURACY_METERS` | Umbral que genera incidencia de baja precisión; valor confirmado: 100. |
+| `ATTENDANCE_DAY_SHIFT_START` | Inicio base del turno diurno; valor confirmado: `09:00`. |
+| `ATTENDANCE_DAY_SHIFT_END` | Fin base del turno diurno; valor confirmado: `18:00`. |
+| `ATTENDANCE_NIGHT_SHIFT_START` | Inicio base de la ventana nocturna; valor confirmado: `19:00`. |
+| `ATTENDANCE_NIGHT_SHIFT_END` | Fin base de la ventana nocturna del día siguiente; valor confirmado: `06:00`. |
+| `ATTENDANCE_LATE_TOLERANCE_MINUTES` | Tolerancia base para clasificación derivada de tardanza; valor confirmado: 10. |
+| `ATTENDANCE_DAILY_RATE_CLP` | Tarifa provisional para la futura 4B-3; default `30000`, actualmente no interviene en cálculos. |
 | `JUSTIFICATION_STORAGE_DIR` | Directorio privado de archivos de justificación. |
 | `JUSTIFICATION_MAX_MB` | Tamaño máximo permitido para cada archivo. El valor de referencia actual es 8 MB. |
 | `PRODUCT_IMPORT_FILE` | Ruta opcional al Excel legacy usado por importación y stock transitorio. |
@@ -234,7 +242,7 @@ El acceso efectivo depende del rol y de la autorización backend.
 | Administración | `/admin/lugares` | Lugares de trabajo |
 | Administración | `/admin/asignaciones` | Asignaciones históricas |
 | Trabajador | `/mi-asistencia` | Calendario personal |
-| Trabajador | `/mi-asistencia/registrar` | Presentación del futuro registro |
+| Trabajador | `/mi-asistencia/registrar` | Estado y registro personal de ENTRADA/SALIDA con GPS puntual |
 | Trabajador | `/mi-asistencia/justificaciones` | Listado personal |
 | Trabajador | `/mi-asistencia/justificar` | Nueva justificación |
 
@@ -282,20 +290,26 @@ El ADMIN no puede recuperar ni visualizar la contraseña personal del usuario. L
 - evidencia GPS separada de evaluación geográfica;
 - selección automática de zona configurada más cercana, distancia y radio aplicados;
 - incidencias `FUERA_RANGO` y `GPS_BAJA_PRECISION`;
-- servicio transaccional interno sin ruta web pública.
+- servicio transaccional interno reutilizado por la ruta web protegida;
+- endpoint web autenticado con ownership derivado de la sesión, permiso backend y CSRF;
+- pantalla de estado con sesión abierta, turno, hora de entrada y única acción disponible;
+- captura GPS del navegador solo al marcar, sin tracking continuo, y evaluación de geocerca en backend;
+- mensajes seguros para éxito, fuera de rango, baja precisión y ausencia de zonas configuradas.
+- calendario mensual derivado de sesiones/marcajes reales, con una sola fecha trabajada aunque existan varias sesiones;
+- detalle personal por fecha con turno, entrada, salida, duración, número de sesiones e incidencias, sin exponer GPS exacto;
+- clasificación verde para fecha trabajada, amarilla para revisión/tardanza, naranja para fuera de rango y neutral cuando no hay información suficiente.
 
 ### Todavía no implementado
 
-- geolocalización del navegador;
-- endpoint y botón funcional para crear marcajes desde la interfaz;
 - mapas o visualización de coordenadas;
 - workflow administrativo de revisión/corrección;
 - alertas de asistencia;
 - planificación diaria previa;
 - supervisión completa de JEFATURA;
 - interfaz completa de aprobación/rechazo de justificaciones para ADMIN/JEFATURA.
+- jornadas pagables, dobles turnos pagables, horas extra, días extra, remuneración y reportes/exportación 4B-3.
 
-La ruta `/mi-asistencia/registrar` prepara la experiencia y explica el flujo, pero no solicita ubicación ni guarda marcajes.
+La ruta `/mi-asistencia/registrar` muestra el estado de la sesión y permite registrar ENTRADA o SALIDA. El cliente no elige trabajador, sesión, zona, fecha ni hora oficial; el servidor deriva ownership y conserva la autoridad temporal.
 
 ### Decisiones arquitectónicas
 
@@ -308,6 +322,9 @@ La ruta `/mi-asistencia/registrar` prepara la experiencia y explica el flujo, pe
 - No se genera una ausencia automática por falta de marcaje: primero será `PENDIENTE_DE_REVISION` y solo podrá calcularse atraso con una hora esperada válida.
 - Actualmente no existe planificación diaria que determine que una persona debía asistir.
 - Un día neutro en el calendario significa “sin registros”, no “ausente”.
+- Una sesión abierta no constituye todavía una fecha completamente trabajada.
+- La salida diurna entre `18:01` y `18:59` no genera horas extra, recargos ni incidencias automáticas.
+- Días trabajados, sesiones y futuras jornadas pagables son conceptos distintos; 4B-2A no calcula pagos.
 - Las comunas iniciales de terreno son zonas amplias que podrán refinarse posteriormente en lugares o faenas específicos.
 
 ## Justificaciones
@@ -336,7 +353,7 @@ python -m compileall -q app tests alembic
 python -m unittest discover -s tests -v
 ```
 
-La validación final de Asistencia 4B-1 ejecutó **118 pruebas: 118 OK**. Incluye 100 pruebas heredadas —contando la regresión de paridad ORM–Alembic de Inventario— y 18 nuevas para sesiones, tiempo, GPS, geocerca, ownership, rollback e integridad histórica de migraciones.
+La validación local de Asistencia 4B-2A ejecutó **154 pruebas: 154 OK**. Incluye la suite previa de 4B-2 y 10 pruebas nuevas para proyección/calendario: sesión cerrada o abierta, múltiples sesiones, ownership, incidencias, fuera de rango, fechas futuras/sin planificación, parámetros horarios, tardanza y salida diurna posterior a las 18:00 sin horas extra automáticas.
 
 La URL SQLite del comando impide que la suite use accidentalmente PostgreSQL local. Las pruebas que necesitan persistencia crean su propio esquema/sesión desechable y restauran overrides. `APP_ENV=test` y `AUTH_ENFORCED=false` son exclusivos del proceso de test y no son una recomendación para ejecutar la aplicación real.
 

@@ -1,5 +1,7 @@
 import os
+import re
 import secrets
+from datetime import time
 
 _DEVELOPMENT_SESSION_SECRET = secrets.token_urlsafe(48)
 _TRUE_VALUES = {"1", "true", "yes", "on"}
@@ -85,6 +87,37 @@ def attendance_min_session_minutes() -> int:
 
 def attendance_max_gps_accuracy_meters() -> int:
     return _positive_int("ATTENDANCE_MAX_GPS_ACCURACY_METERS", 100)
+
+
+def _time_value(name: str, default: str) -> time:
+    raw_value = os.getenv(name, default).strip()
+    if re.fullmatch(r"(?:[01]\d|2[0-3]):[0-5]\d", raw_value) is None:
+        raise RuntimeError(f"{name} debe usar formato HH:MM")
+    return time.fromisoformat(raw_value)
+
+
+def attendance_day_shift_start() -> time:
+    return _time_value("ATTENDANCE_DAY_SHIFT_START", "09:00")
+
+
+def attendance_day_shift_end() -> time:
+    return _time_value("ATTENDANCE_DAY_SHIFT_END", "18:00")
+
+
+def attendance_night_shift_start() -> time:
+    return _time_value("ATTENDANCE_NIGHT_SHIFT_START", "19:00")
+
+
+def attendance_night_shift_end() -> time:
+    return _time_value("ATTENDANCE_NIGHT_SHIFT_END", "06:00")
+
+
+def attendance_late_tolerance_minutes() -> int:
+    return _positive_int("ATTENDANCE_LATE_TOLERANCE_MINUTES", 10)
+
+
+def attendance_daily_rate_clp() -> int:
+    return _positive_int("ATTENDANCE_DAILY_RATE_CLP", 30000)
 
 
 def justification_storage_dir() -> str:

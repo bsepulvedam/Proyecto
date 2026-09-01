@@ -3,7 +3,7 @@ import os
 import re
 import tempfile
 import unittest
-from datetime import date, datetime, timezone
+from datetime import date, datetime, time, timezone
 from io import BytesIO
 from pathlib import Path
 
@@ -15,7 +15,8 @@ from sqlalchemy.pool import StaticPool
 from app.database.base import Base
 from app.database.session import get_db
 from app.main import app
-from app.models.attendance import JustificacionInasistencia, LugarTrabajo, Turno
+from app.core.time import app_timezone
+from app.models.attendance import JustificacionInasistencia, LugarTrabajo, MarcajeAsistencia, SesionTrabajo, Turno
 from app.models.empresa import Empresa
 from app.models.identity import Rol, Trabajador
 from app.schemas.identity import UserCreate
@@ -32,7 +33,7 @@ from tests.test_identity_auth import ASGIClient
 
 class AttendanceStructureTests(unittest.TestCase):
     def setUp(self):
-        names = ("AUTH_ENFORCED", "SESSION_SECRET", "COOKIE_SECURE", "JUSTIFICATION_STORAGE_DIR")
+        names = ("AUTH_ENFORCED", "SESSION_SECRET", "COOKIE_SECURE", "JUSTIFICATION_STORAGE_DIR", "APP_TIMEZONE")
         self.previous = {name: os.environ.get(name) for name in names}
         self.storage = tempfile.TemporaryDirectory()
         os.environ.update({
@@ -40,6 +41,7 @@ class AttendanceStructureTests(unittest.TestCase):
             "SESSION_SECRET": "test-secret-only-not-production",
             "COOKIE_SECURE": "false",
             "JUSTIFICATION_STORAGE_DIR": self.storage.name,
+            "APP_TIMEZONE": "America/Santiago",
         })
         self.engine = create_engine(
             "sqlite+pysqlite:///:memory:",
@@ -122,7 +124,7 @@ class AttendanceStructureTests(unittest.TestCase):
         for protected in ("productos", "movimientos_inventario", "ordenes_trabajo"):
             self.assertNotIn(f'op.alter_table("{protected}"', migration)
 
-    def test_worker_landing_sidebar_calendar_and_register_without_gps(self):
+    def test_worker_landing_sidebar_calendar_and_register_with_on_demand_gps(self):
         client = ASGIClient()
         login = self.login(client, "ana", "Clave-Trabajador-123")
         self.assertEqual(login.headers["location"], "/mi-asistencia")
@@ -137,7 +139,45 @@ class AttendanceStructureTests(unittest.TestCase):
         register = client.get("/mi-asistencia/registrar")
         self.assertEqual(register.status_code, 200)
         self.assertIn("DIURNO", register.text); self.assertIn("NOCTURNO", register.text)
-        self.assertNotIn("geolocation", register.text.lower())
+        self.assertIn("attendance-register.js", register.text)
+        self.assertIn("Marcar entrada", register.text)
+
+    def test_calendar_renders_closed_sessions_and_keeps_other_worker_private(self):
+        operational_day = date(2026, 9, 1)
+        entry_at = datetime.combine(operational_day, time(9, 0), tzinfo=app_timezone()).astimezone(timezone.utc)
+        exit_at = datetime.combine(operational_day, time(18, 30), tzinfo=app_timezone()).astimezone(timezone.utc)
+        with self.Session() as db:
+            shift = db.scalar(select(Turno).where(Turno.codigo == "DIURNO"))
+            own_session = SesionTrabajo(
+                trabajador_id=self.worker.id,
+                turno_id=shift.id,
+                fecha_operacional=operational_day,
+                estado="CERRADA",
+                cerrado_at=exit_at,
+            )
+            other_session = SesionTrabajo(
+                trabajador_id=self.other_worker.id,
+                turno_id=shift.id,
+                fecha_operacional=date(2026, 9, 2),
+                estado="CERRADA",
+                cerrado_at=exit_at,
+            )
+            db.add_all([own_session, other_session]); db.flush()
+            db.add_all([
+                MarcajeAsistencia(sesion_id=own_session.id, tipo="ENTRADA", ocurrido_at=entry_at),
+                MarcajeAsistencia(sesion_id=own_session.id, tipo="SALIDA", ocurrido_at=exit_at),
+                MarcajeAsistencia(sesion_id=other_session.id, tipo="ENTRADA", ocurrido_at=entry_at),
+                MarcajeAsistencia(sesion_id=other_session.id, tipo="SALIDA", ocurrido_at=exit_at),
+            ])
+            db.commit()
+
+        client = ASGIClient(); self.login(client, "ana", "Clave-Trabajador-123")
+        page = client.get("/mi-asistencia?year=2026&month=9")
+        self.assertEqual(page.status_code, 200)
+        self.assertIn("calendar-day--trabajado", page.text)
+        self.assertIn("Fecha trabajada", page.text)
+        self.assertIn("Duración: 570 min", page.text)
+        self.assertEqual(page.text.count("Fecha trabajada"), 2)
 
     def test_justifications_text_file_validation_states_and_isolation(self):
         with self.Session() as db:

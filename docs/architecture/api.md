@@ -11,6 +11,7 @@
 | GET `/dashboard` | general | HTML | plataforma |
 | GET/POST `/admin/trabajadores`, `/admin/usuarios`, `/admin/lugares`, `/admin/asignaciones` | administración | formularios/HTML | `ADMIN_ACCESS` |
 | GET/POST `/mi-asistencia/...` | asistencia | formularios/HTML/archivo | trabajador activo |
+| GET/POST `/mi-asistencia/registrar` | asistencia | estado/HTML y marcaje GPS puntual | `ASISTENCIA_PROPIA`, TRABAJADOR activo y CSRF |
 | GET/POST `/productos...`, `/inventario...` | inventario | HTML | `INVENTARIO_ACCESS` |
 | GET/POST `/ordenes-trabajo...` | OT | HTML | `OT_ACCESS` |
 

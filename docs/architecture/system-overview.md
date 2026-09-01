@@ -2,7 +2,7 @@
 
 ## Current state
 
-[IMPLEMENTADO] Aplicación FastAPI única con dos interfaces: HTML/Jinja2 y una API JSON pequeña. PostgreSQL es el destino real; SQLAlchemy administra sesiones y Alembic seis revisiones lineales. Dominios prioritarios conviven en carpetas por capa. Órdenes de trabajo sigue presente aunque no es prioridad de evolución.
+[IMPLEMENTADO] Aplicación FastAPI única con dos interfaces: HTML/Jinja2 y una API JSON pequeña. PostgreSQL es el destino real; SQLAlchemy administra sesiones y Alembic siete revisiones lineales. Dominios prioritarios conviven en carpetas por capa. Órdenes de trabajo sigue presente aunque no es prioridad de evolución.
 
 ## Target state
 

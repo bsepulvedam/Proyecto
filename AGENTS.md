@@ -52,3 +52,7 @@ Ante conflicto prevalecen: código ejecutable, configuración real, migraciones,
 ## Definición de terminado e informe
 
 Un cambio termina cuando el comportamiento solicitado está implementado, las migraciones y contratos son coherentes, las pruebas relevantes pasan, seguridad/permisos fueron revisados y la documentación quedó vigente. El informe final debe listar resultado, archivos, validaciones, riesgos pendientes y confirmar explícitamente si hubo migraciones, cambios de DB, commit, push o despliegue.
+
+## Continuidad operativa
+
+Antes de comenzar una nueva tarea de desarrollo, revisar `CURRENT.md` junto con el código relacionado. Al finalizar una fase o tarea aprobada, actualizar `CURRENT.md` para reflejar el estado real del repositorio, los tests ejecutados, problemas conocidos y el punto exacto de continuidad. `CURRENT.md` nunca debe declarar como implementado algo que no pueda verificarse en el código.

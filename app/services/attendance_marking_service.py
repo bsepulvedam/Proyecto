@@ -1,12 +1,12 @@
 from dataclasses import dataclass
-from datetime import timedelta, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal, ROUND_HALF_UP
 from math import asin, cos, radians, sin, sqrt
 from typing import Iterable
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.core.config import (
     attendance_max_gps_accuracy_meters,
@@ -42,6 +42,65 @@ class GeoEvaluationResult:
     geofence_status: str
     accuracy_status: str
     max_accuracy_m: Decimal
+
+
+@dataclass(frozen=True)
+class AttendanceRegistrationState:
+    has_open_session: bool
+    shift_code: str | None
+    shift_name: str | None
+    entry_time: datetime | None
+
+
+@dataclass(frozen=True)
+class AttendanceMarkFeedback:
+    mark_type: str
+    geofence_status: str
+    accuracy_status: str
+
+
+def get_attendance_registration_state(
+    db: Session, worker: Trabajador
+) -> AttendanceRegistrationState:
+    session = db.scalar(
+        select(SesionTrabajo)
+        .options(joinedload(SesionTrabajo.turno))
+        .where(
+            SesionTrabajo.trabajador_id == worker.id,
+            SesionTrabajo.estado == "ABIERTA",
+        )
+    )
+    if session is None:
+        return AttendanceRegistrationState(False, None, None, None)
+    entry_time = db.scalar(
+        select(MarcajeAsistencia.ocurrido_at).where(
+            MarcajeAsistencia.sesion_id == session.id,
+            MarcajeAsistencia.tipo == "ENTRADA",
+        )
+    )
+    return AttendanceRegistrationState(
+        True,
+        session.turno.codigo,
+        session.turno.nombre,
+        entry_time,
+    )
+
+
+def get_attendance_mark_feedback(
+    db: Session, mark: MarcajeAsistencia
+) -> AttendanceMarkFeedback:
+    evaluation = db.scalar(
+        select(EvaluacionGeograficaMarcaje).where(
+            EvaluacionGeograficaMarcaje.marcaje_id == mark.id
+        )
+    )
+    if evaluation is None:
+        raise RuntimeError("El marcaje no tiene evaluación geográfica")
+    return AttendanceMarkFeedback(
+        mark.tipo,
+        evaluation.estado_geocerca,
+        evaluation.estado_precision,
+    )
 
 
 def haversine_distance_m(

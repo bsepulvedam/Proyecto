@@ -2,7 +2,7 @@
 
 ## Current state
 
-La UI operativa usa Jinja2 en `app/templates`, CSS/JS en `app/static` y navegación común mediante `base.html`, sidebar y topbar. Hay formularios de identidad, administración, asistencia, inventario, productos y OT. `frontend/` contiene login/dashboard estáticos históricos.
+La UI operativa usa Jinja2 en `app/templates`, CSS/JS en `app/static` y navegación común mediante `base.html`, sidebar y topbar. Hay formularios de identidad, administración, asistencia, inventario, productos y OT. [IMPLEMENTADO 4B-2] el marcaje personal solicita GPS con JavaScript solo después de una acción explícita y deja reglas, ownership y geocerca en backend. [IMPLEMENTADO 4B-2A] el calendario personal presenta fecha trabajada, revisión, fuera de rango o neutral y permite desplegar turno/horas/duración/incidencias sin mostrar GPS exacto. `frontend/` contiene login/dashboard estáticos históricos.
 
 ## Gaps
 

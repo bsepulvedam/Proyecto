@@ -1,12 +1,14 @@
 # Reglas de Asistencia
 
-- [IMPLEMENTADO] lugar tipo BASE/TALLER/TERRENO, coordenadas/radio opcionales y asignaciones con vigencia válida.
+- [IMPLEMENTADO EN ÁRBOL 4B-2B] lugar tipo BASE/TALLER/TERRENO con geocerca opcional `RADIO` o `COMUNA`; las asignaciones conservan historia, pero no intervienen en la detección automática.
 - [IMPLEMENTADO] justificación requiere observación o archivo; tipos y estados están restringidos.
 - [CONFIRMADO] un trabajador puede tener múltiples sesiones en un mismo día operacional. Cada sesión tiene conceptualmente una `ENTRADA` y una `SALIDA`; tras cerrarla puede iniciar otra, permitiendo doble turno.
 - [CONFIRMADO] `DIURNO`/`NOCTURNO` identifica la jornada elegida por el trabajador y no constituye planificación rígida. Un turno nocturno puede cruzar medianoche.
 - [IMPLEMENTADO 4B-1] no se permite entrada duplicada, salida sin sesión, salida duplicada ni salida antes de 5 minutos. `ATTENDANCE_MIN_SESSION_MINUTES` centraliza el valor.
 - [CONFIRMADO] la hora del servidor es autoritativa y `APP_TIMEZONE` determina la fecha/día operacional; no se debe usar `date.today()` del servidor para esa decisión.
-- [IMPLEMENTADO 4B-1] el servicio exige GPS válido, selecciona automáticamente la zona activa configurada más cercana mediante Haversine y conserva distancia/radio. Fuera de rango se registra y genera incidencia.
+- [IMPLEMENTADO EN ÁRBOL 4B-2B] el servicio exige GPS válido y evalúa todas las zonas activas. `RADIO` usa Haversine contra centro/radio; `COMUNA` usa el polígono oficial identificado exclusivamente por `CUT_COM`, con borde incluido y tolerancia exterior configurable de 100 m.
+- [IMPLEMENTADO EN ÁRBOL 4B-2B] la selección determinística ordena por estado (`DENTRO_RANGO` antes de `DENTRO_TOLERANCIA` antes de `FUERA_RANGO`), prioridad menor, mejor margen y menor ID. El trabajador no selecciona zona ni se filtra por asignación trabajador-lugar.
+- [IMPLEMENTADO EN ÁRBOL 4B-2B] `DENTRO_TOLERANCIA` se persiste con tolerancia y versión geométrica, no genera incidencia automática y queda disponible para la futura supervisión ADMIN/JEFATURA. `FUERA_RANGO` se registra y genera incidencia.
 - [IMPLEMENTADO 4B-1] precisión mayor a 100 m genera `GPS_BAJA_PRECISION` sin rechazar el marcaje; `ATTENDANCE_MAX_GPS_ACCURACY_METERS` centraliza el umbral.
 - [CONFIRMADO] no existe tracking continuo: GPS se solicita únicamente al marcar.
 - [CONFIRMADO] una falta de marcaje queda `PENDIENTE_DE_REVISION` antes de una ausencia definitiva. Sin una fuente válida de planificación no se infiere ausencia.

@@ -1,6 +1,6 @@
 # Permisos de Asistencia
 
-[IMPLEMENTADO] TRABAJADOR accede solo a su contexto; ADMIN administra lugares/asignaciones; JEFATURA posee permiso conceptual de supervisión sin UI completa.
+[IMPLEMENTADO EN ÁRBOL 4B-2B] TRABAJADOR accede solo a su contexto; ADMIN administra lugares y geocercas por código comunal oficial; JEFATURA posee permiso conceptual de supervisión sin UI completa. Ni el trabajador ni su asignación histórica seleccionan la zona evaluada.
 
 [CONFIRMADO] TRABAJADOR verá solo su asistencia/calendario, marcará solo su propia asistencia y no modificará marcajes. JEFATURA y ADMIN podrán revisar trabajadores/asistencia y corregir según permisos; toda corrección deberá quedar auditada.
 

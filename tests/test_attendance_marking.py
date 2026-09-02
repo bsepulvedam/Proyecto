@@ -11,6 +11,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.core.config import (
+    attendance_commune_boundary_tolerance_meters,
     attendance_max_gps_accuracy_meters,
     attendance_min_session_minutes,
 )
@@ -41,6 +42,7 @@ class AttendanceMarkingTests(unittest.TestCase):
                 "APP_TIMEZONE",
                 "ATTENDANCE_MIN_SESSION_MINUTES",
                 "ATTENDANCE_MAX_GPS_ACCURACY_METERS",
+                "ATTENDANCE_COMMUNE_BOUNDARY_TOLERANCE_METERS",
             )
         }
         os.environ.update(
@@ -48,6 +50,7 @@ class AttendanceMarkingTests(unittest.TestCase):
                 "APP_TIMEZONE": "America/Santiago",
                 "ATTENDANCE_MIN_SESSION_MINUTES": "5",
                 "ATTENDANCE_MAX_GPS_ACCURACY_METERS": "100",
+                "ATTENDANCE_COMMUNE_BOUNDARY_TOLERANCE_METERS": "100",
             }
         )
         self.engine = create_engine(
@@ -64,6 +67,7 @@ class AttendanceMarkingTests(unittest.TestCase):
         self.place = LugarTrabajo(
             nombre="Zona Test",
             tipo="TERRENO",
+            tipo_geocerca="RADIO",
             latitud=Decimal("-33.000000"),
             longitud=Decimal("-70.000000"),
             radio_metros=Decimal("150.00"),
@@ -241,6 +245,7 @@ class AttendanceMarkingTests(unittest.TestCase):
         nearer = LugarTrabajo(
             nombre="Zona Test Cercana",
             tipo="TERRENO",
+            tipo_geocerca="RADIO",
             latitud=Decimal("-34.000000"),
             longitud=Decimal("-71.000000"),
             radio_metros=Decimal("10.00"),
@@ -308,12 +313,16 @@ class AttendanceMarkingTests(unittest.TestCase):
     def test_attendance_thresholds_are_centralized_and_strict(self):
         self.assertEqual(attendance_min_session_minutes(), 5)
         self.assertEqual(attendance_max_gps_accuracy_meters(), 100)
+        self.assertEqual(attendance_commune_boundary_tolerance_meters(), 100)
         with patch.dict(os.environ, {"ATTENDANCE_MIN_SESSION_MINUTES": "0"}):
             with self.assertRaises(RuntimeError):
                 attendance_min_session_minutes()
         with patch.dict(os.environ, {"ATTENDANCE_MAX_GPS_ACCURACY_METERS": "invalid"}):
             with self.assertRaises(RuntimeError):
                 attendance_max_gps_accuracy_meters()
+        with patch.dict(os.environ, {"ATTENDANCE_COMMUNE_BOUNDARY_TOLERANCE_METERS": "0"}):
+            with self.assertRaises(RuntimeError):
+                attendance_commune_boundary_tolerance_meters()
 
 
 if __name__ == "__main__":

@@ -2,7 +2,7 @@
 
 ## Current state
 
-[IMPLEMENTADO] Uvicorn/FastAPI, PostgreSQL configurable y storage privado local para justificantes. [PENDIENTE] No hay Docker, proxy, TLS, CI/CD, staging, backups, restore probado, métricas ni configuración de hosting en el repositorio.
+[IMPLEMENTADO] Uvicorn/FastAPI, PostgreSQL configurable y storage privado local para justificantes. [IMPLEMENTADO] Existe un [procedimiento manual de backup/restore PostgreSQL](../operations/database-backup-restore.md) con un backup local pre-migración y restore desechable validados el 2026-09-02. [PENDIENTE] No hay Docker, proxy, TLS, CI/CD, staging, backups automáticos/copia externa, monitoreo, retención/RPO/RTO, métricas ni configuración de hosting en el repositorio.
 
 ## Target state
 
@@ -10,4 +10,4 @@
 
 ## Next steps
 
-Seleccionar proveedor y RPO/RTO; definir build reproducible, migración controlada, backup y rollback antes del primer release.
+Seleccionar proveedor y RPO/RTO; definir build reproducible, migración controlada, automatización/custodia de backups y rollback antes del primer release.

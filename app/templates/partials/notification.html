@@ -1,0 +1,10 @@
+{% if notification %}
+<div class="toast-container position-fixed bottom-0 start-0 p-3">
+  <div class="toast align-items-center border-0 text-bg-{{ 'success' if notification.level == 'success' else 'danger' }}" role="{{ 'status' if notification.level == 'success' else 'alert' }}" aria-live="{{ 'polite' if notification.level == 'success' else 'assertive' }}" aria-atomic="true" data-app-toast data-bs-delay="5000">
+    <div class="d-flex">
+      <div class="toast-body">{{ notification.text }}</div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Cerrar notificación"></button>
+    </div>
+  </div>
+</div>
+{% endif %}

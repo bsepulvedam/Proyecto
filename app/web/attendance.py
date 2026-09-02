@@ -44,6 +44,8 @@ def _mark_result_messages(
         return messages
     if geofence == "FUERA_RANGO":
         messages.append({"level": "warning", "text": "El marcaje fue registrado fuera del rango permitido y quedó pendiente de revisión."})
+    elif geofence == "DENTRO_TOLERANCIA":
+        messages.append({"level": "info", "text": "El marcaje fue registrado dentro de la tolerancia configurada para el limite comunal."})
     elif geofence == "SIN_ZONA_CONFIGURADA":
         messages.append({"level": "info", "text": "El marcaje fue registrado, pero no existen zonas configuradas para evaluarlo."})
     if accuracy == "BAJA_PRECISION":

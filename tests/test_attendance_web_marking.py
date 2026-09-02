@@ -71,6 +71,7 @@ class AttendanceWebMarkingTests(unittest.TestCase):
                     LugarTrabajo(
                         nombre="Zona Test",
                         tipo="TERRENO",
+                        tipo_geocerca="RADIO",
                         latitud=Decimal("-33.000000"),
                         longitud=Decimal("-70.000000"),
                         radio_metros=Decimal("150.00"),

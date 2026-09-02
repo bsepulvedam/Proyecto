@@ -20,6 +20,8 @@ Asistencia 4B-1 implementa el modelo y servicio interno de sesiones, marcajes y 
 
 Asistencia 4B-2A conecta el calendario personal con sesiones y marcajes reales. Una fecha se muestra como trabajada cuando contiene al menos una sesión cerrada con `ENTRADA` y `SALIDA`; varias sesiones conservan su detalle, pero cuentan como una sola fecha trabajada. Incidencias y fuera de rango cambian la clasificación visual sin borrar el hecho registrado.
 
+Asistencia 4B-2B, implementada actualmente en el árbol, incorpora geocercas `RADIO` y `COMUNA`, detección automática entre todas las zonas activas y una tolerancia comunal configurable. El catálogo versionado contiene únicamente las 13 comunas aprobadas y usa `CUT_COM` como identidad territorial.
+
 ## Tecnologías
 
 - **Backend:** Python y FastAPI
@@ -32,6 +34,7 @@ Asistencia 4B-2A conecta el calendario personal con sesiones y marcajes reales. 
 - **Acceso PostgreSQL:** Psycopg 3
 - **Seguridad:** sesiones revocables, cookies HttpOnly, CSRF, Argon2id y autorización por roles
 - **Archivos Excel:** OpenPyXL
+- **Geometría geográfica:** Shapely 2.1.2 y pyproj 3.7.2
 - **Pruebas:** biblioteca estándar `unittest`
 
 Las dependencias y los rangos actualmente definidos por el proyecto se encuentran en `requirements.txt`; algunas dependencias todavía no están fijadas a una versión exacta.
@@ -144,6 +147,7 @@ Edita tu copia de `.env` sin compartirla ni subirla a Git. Las variables actuale
 | `APP_TIMEZONE` | Zona horaria operacional, normalmente `America/Santiago`. |
 | `ATTENDANCE_MIN_SESSION_MINUTES` | Intervalo mínimo entre ENTRADA y SALIDA; valor confirmado: 5. |
 | `ATTENDANCE_MAX_GPS_ACCURACY_METERS` | Umbral que genera incidencia de baja precisión; valor confirmado: 100. |
+| `ATTENDANCE_COMMUNE_BOUNDARY_TOLERANCE_METERS` | Tolerancia exterior para geocercas comunales; valor provisional: 100 m. |
 | `ATTENDANCE_DAY_SHIFT_START` | Inicio base del turno diurno; valor confirmado: `09:00`. |
 | `ATTENDANCE_DAY_SHIFT_END` | Fin base del turno diurno; valor confirmado: `18:00`. |
 | `ATTENDANCE_NIGHT_SHIFT_START` | Inicio base de la ventana nocturna; valor confirmado: `19:00`. |
@@ -186,7 +190,7 @@ python -m alembic upgrade head
 El HEAD actual del código es:
 
 ```text
-20260831_07
+20260901_08
 ```
 
 En un clon nuevo, `alembic upgrade head` crea y actualiza todas las tablas hasta esa revisión.
@@ -277,8 +281,9 @@ El ADMIN no puede recuperar ni visualizar la contraseña personal del usuario. L
 - catálogo de lugares de trabajo;
 - Base Boliklor - La Pintana;
 - Taller Boliklor - La Pintana;
-- zonas o comunas de terreno configurables;
-- direcciones, coordenadas y radios opcionales, administrados sin inventar valores;
+- zonas `RADIO` o `COMUNA` administrables por ADMIN;
+- catálogo versionado de 13 comunas SUBDERE DPA 2023, seleccionadas exclusivamente por `CUT_COM`;
+- direcciones, coordenadas de referencia, radios y prioridades configurables;
 - asignaciones históricas trabajador-lugar;
 - turnos `DIURNO` y `NOCTURNO`;
 - landing, calendario mensual y navegación personal del trabajador;
@@ -288,7 +293,9 @@ El ADMIN no puede recuperar ni visualizar la contraseña personal del usuario. L
 - modelo de sesiones con múltiples jornadas por día operacional;
 - eventos únicos `ENTRADA`/`SALIDA` con hora oficial del servidor;
 - evidencia GPS separada de evaluación geográfica;
-- selección automática de zona configurada más cercana, distancia y radio aplicados;
+- evaluación automática de todas las zonas activas, sin asignación ni selección del trabajador;
+- selección determinística por estado, prioridad, margen e ID;
+- resultados `DENTRO_RANGO`, `DENTRO_TOLERANCIA`, `FUERA_RANGO` y `SIN_ZONA_CONFIGURADA`, con snapshot de tipo/tolerancia/versión geométrica;
 - incidencias `FUERA_RANGO` y `GPS_BAJA_PRECISION`;
 - servicio transaccional interno reutilizado por la ruta web protegida;
 - endpoint web autenticado con ownership derivado de la sesión, permiso backend y CSRF;
@@ -318,14 +325,14 @@ La ruta `/mi-asistencia/registrar` muestra el estado de la sesión y permite reg
 - Cada sesión tiene `ENTRADA` y `SALIDA`; se impiden duplicados y una salida antes de 5 minutos. El valor está centralizado en `ATTENDANCE_MIN_SESSION_MINUTES`.
 - Base y Taller de La Pintana son conceptos diferentes aunque compartan o tengan una ubicación física cercana.
 - La hora del servidor será autoritativa y `APP_TIMEZONE` determinará el día operacional.
-- Entrada y salida usan evidencia de ubicación obligatoria en el servicio; el backend evalúa el radio configurable. Fuera de rango y precisión mayor a 100 m se conservan como incidencias, no como rechazo.
+- Entrada y salida usan evidencia de ubicación obligatoria en el servicio; el backend evalúa geocercas `RADIO`/`COMUNA`. Fuera de rango y precisión mayor a 100 m se conservan como incidencias, no como rechazo; `DENTRO_TOLERANCIA` se persiste sin incidencia automática.
 - No se genera una ausencia automática por falta de marcaje: primero será `PENDIENTE_DE_REVISION` y solo podrá calcularse atraso con una hora esperada válida.
 - Actualmente no existe planificación diaria que determine que una persona debía asistir.
 - Un día neutro en el calendario significa “sin registros”, no “ausente”.
 - Una sesión abierta no constituye todavía una fecha completamente trabajada.
 - La salida diurna entre `18:01` y `18:59` no genera horas extra, recargos ni incidencias automáticas.
 - Días trabajados, sesiones y futuras jornadas pagables son conceptos distintos; 4B-2A no calcula pagos.
-- Las comunas iniciales de terreno son zonas amplias que podrán refinarse posteriormente en lugares o faenas específicos.
+- Las 13 comunas iniciales son zonas amplias derivadas de la fuente oficial y podrán refinarse posteriormente en lugares o faenas específicos. La geometría se identifica por `CUT_COM`, no por nombre.
 
 ## Justificaciones
 
@@ -353,7 +360,7 @@ python -m compileall -q app tests alembic
 python -m unittest discover -s tests -v
 ```
 
-La validación local de Asistencia 4B-2A ejecutó **154 pruebas: 154 OK**. Incluye la suite previa de 4B-2 y 10 pruebas nuevas para proyección/calendario: sesión cerrada o abierta, múltiples sesiones, ownership, incidencias, fuera de rango, fechas futuras/sin planificación, parámetros horarios, tardanza y salida diurna posterior a las 18:00 sin horas extra automáticas.
+La validación local posterior a Asistencia 4B-2B ejecutó **166 pruebas: 166 OK**. Incluye la regresión de 4B-2/4B-2A y casos de RADIO/COMUNA, borde/tolerancia/fuera, catálogo oficial por código, solapamientos, prioridad determinística, ausencia de asignación, persistencia sin incidencia automática y fallas seguras del dataset.
 
 La URL SQLite del comando impide que la suite use accidentalmente PostgreSQL local. Las pruebas que necesitan persistencia crean su propio esquema/sesión desechable y restauran overrides. `APP_ENV=test` y `AUTH_ENFORCED=false` son exclusivos del proceso de test y no son una recomendación para ejecutar la aplicación real.
 

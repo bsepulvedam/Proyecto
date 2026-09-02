@@ -23,6 +23,8 @@ flowchart LR
 
 [IMPLEMENTADO 4B-2A] `attendance_calendar_service.py` proyecta sesiones, marcajes e incidencias por fecha operacional sin modificar la evidencia ni calcular remuneración. La ruta personal deriva el Worker autenticado y la plantilla sólo presenta el resultado, sin coordenadas GPS.
 
+[IMPLEMENTADO EN ÁRBOL 4B-2B] `attendance_geofence_service.py` encapsula la evaluación `RADIO`/`COMUNA`. Carga y valida un GeoJSON reducido de SUBDERE, cachea geometrías WGS84 y métricas por proceso, y devuelve un snapshot que el servicio transaccional de marcaje persiste. La detección usa todas las zonas activas y no depende de asignaciones trabajador-lugar.
+
 ## Módulos y relaciones
 
 - Identidad es dueña de cuenta, rol y sesión.

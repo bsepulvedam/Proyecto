@@ -56,3 +56,43 @@ class AttendanceMarkForm(BaseModel):
             precision_m=self.precision_m,
             capturada_at=self.capturada_at,
         )
+
+
+class PlaceData(BaseModel):
+    nombre: str = Field(min_length=1, max_length=200)
+    tipo: Literal["BASE", "TALLER", "TERRENO"]
+    comuna: str | None = Field(default=None, max_length=120)
+    direccion: str | None = Field(default=None, max_length=300)
+    tipo_geocerca: Literal["RADIO", "COMUNA"] | None = None
+    codigo_comuna: str | None = Field(default=None, pattern=r"^\d{5}$")
+    latitud: Decimal | None = Field(default=None, ge=Decimal("-90"), le=Decimal("90"), max_digits=18, decimal_places=15)
+    longitud: Decimal | None = Field(default=None, ge=Decimal("-180"), le=Decimal("180"), max_digits=18, decimal_places=15)
+    radio_metros: Decimal | None = Field(default=None, gt=0, max_digits=8, decimal_places=2)
+    prioridad_geocerca: int = Field(default=100, gt=0)
+    activo: bool = True
+
+    @field_validator("nombre", "comuna", "direccion", mode="before")
+    @classmethod
+    def strip_text(cls, value: object) -> object:
+        if not isinstance(value, str):
+            return value
+        stripped = value.strip()
+        return stripped or None
+
+    @model_validator(mode="after")
+    def validate_geofence(self) -> "PlaceData":
+        if (self.latitud is None) != (self.longitud is None):
+            raise ValueError("Latitud y longitud deben informarse juntas")
+        if self.tipo_geocerca == "RADIO":
+            if self.latitud is None or self.radio_metros is None:
+                raise ValueError("Una geocerca RADIO requiere coordenadas y radio")
+            if self.codigo_comuna is not None:
+                raise ValueError("Una geocerca RADIO no usa CUT_COM")
+        elif self.tipo_geocerca == "COMUNA":
+            if self.codigo_comuna is None or self.latitud is None:
+                raise ValueError("Una geocerca COMUNA requiere CUT_COM y coordenadas de referencia")
+            if self.radio_metros is not None:
+                raise ValueError("Una geocerca COMUNA no usa radio")
+        elif self.codigo_comuna is not None or self.radio_metros is not None:
+            raise ValueError("Selecciona un tipo de geocerca para configurar código o radio")
+        return self

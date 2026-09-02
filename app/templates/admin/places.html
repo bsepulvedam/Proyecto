@@ -1,1 +1,53 @@
-{% extends "base.html" %}{% block title %}Lugares | BOLIKLOR{% endblock %}{% block body %}{% include "partials/sidebar.html" %}<div class="main-wrapper">{% include "partials/topbar.html" %}<main class="content"><section class="history-heading"><div><p class="section-kicker">Administración</p><h2>Lugares de trabajo</h2><p>Las coordenadas y radios pendientes deben configurarse con datos reales.</p></div><a class="btn btn-brand" href="{{ url_for('admin_new_place') }}">Nuevo lugar</a></section><section class="data-card"><div class="table-responsive"><table class="table mb-0"><thead><tr><th>Nombre</th><th>Tipo</th><th>Comuna</th><th>GPS</th><th>Estado</th><th></th></tr></thead><tbody>{% for place in places %}<tr><td><strong>{{ place.nombre }}</strong></td><td>{{ place.tipo }}</td><td>{{ place.comuna or '—' }}</td><td>{{ 'Configurado' if place.latitud is not none and place.longitud is not none and place.radio_metros is not none else 'Pendiente' }}</td><td>{{ 'ACTIVO' if place.activo else 'INACTIVO' }}</td><td><a href="{{ url_for('admin_place_detail', place_id=place.id) }}">Editar</a></td></tr>{% endfor %}</tbody></table></div></section></main></div>{% endblock %}
+{% extends "base.html" %}
+{% block title %}Lugares | BOLIKLOR{% endblock %}
+{% block body %}
+{% include "partials/sidebar.html" %}
+<div class="main-wrapper">
+  {% include "partials/topbar.html" %}
+  <main class="content">
+    <section class="history-heading">
+      <div>
+        <p class="section-kicker">Administración</p>
+        <h2>Lugares y geocercas de trabajo</h2>
+        <p>Las geocercas activas son globales. Las asignaciones no condicionan el marcaje.</p>
+      </div>
+      <a class="btn btn-brand" href="{{ url_for('admin_new_place') }}">Nuevo lugar</a>
+    </section>
+    {% include "partials/notification.html" %}
+    <section class="data-card"><div class="table-responsive"><table class="table mb-0">
+      <thead><tr><th>Nombre</th><th>Lugar</th><th>Geocerca</th><th>Comuna/CUT</th><th>Prioridad</th><th>Estado</th><th>Acciones</th></tr></thead>
+      <tbody>{% for place in places %}<tr>
+        <td><strong>{{ place.nombre }}</strong></td><td>{{ place.tipo }}</td><td>{{ place.tipo_geocerca or 'Sin configurar' }}</td>
+        <td>{{ place.comuna or '—' }}{% if place.codigo_comuna %} / {{ place.codigo_comuna }}{% endif %}</td>
+        <td>{{ place.prioridad_geocerca }}</td>
+        <td><span class="badge-status {{ 'badge-status--success' if place.activo else 'badge-status--neutral' }}">{{ 'ACTIVO' if place.activo else 'INACTIVO' }}</span></td>
+        <td><div class="admin-actions">
+          <a class="btn btn-sm btn-outline-dark" href="{{ url_for('admin_place_detail', place_id=place.id) }}">Editar</a>
+          <form method="post" action="{{ url_for('admin_update_place_state', place_id=place.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ request.cookies.get('boliklor_csrf', '') }}">
+            <input type="hidden" name="activo" value="{{ '0' if place.activo else '1' }}">
+            <button class="btn btn-sm {{ 'btn-outline-danger' if place.activo else 'btn-outline-success' }}" type="button" data-place-state-trigger data-place-name="{{ place.nombre }}" data-place-state-action="{{ 'desactivar' if place.activo else 'activar' }}">{{ 'Desactivar' if place.activo else 'Activar' }}</button>
+          </form>
+        </div></td>
+      </tr>{% endfor %}</tbody>
+    </table></div></section>
+  </main>
+</div>
+
+<div class="modal fade" id="place-state-confirmation" tabindex="-1" aria-labelledby="place-state-confirmation-title" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title fs-5" id="place-state-confirmation-title">Confirmar cambio de estado</h2>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body"><p class="mb-0" data-place-state-message></p></div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-light" data-bs-dismiss="modal">No</button>
+        <button type="button" class="btn btn-brand" data-place-state-confirm>Sí</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', path='/js/admin-places.js') }}"></script>{% endblock %}

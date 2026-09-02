@@ -1,17 +1,11 @@
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from decimal import Decimal, ROUND_HALF_UP
-from math import asin, cos, radians, sin, sqrt
-from typing import Iterable
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
-from app.core.config import (
-    attendance_max_gps_accuracy_meters,
-    attendance_min_session_minutes,
-)
+from app.core.config import attendance_min_session_minutes
 from app.core.time import operational_date, utc_now
 from app.models.attendance import (
     EvaluacionGeograficaMarcaje,
@@ -24,24 +18,18 @@ from app.models.attendance import (
 )
 from app.models.identity import Trabajador
 from app.schemas.attendance import EvidenciaGPSCreate
+from app.services.attendance_geofence_service import (
+    GeoEvaluationResult,
+    GeofenceConfigurationError,
+    evaluate_geolocation,
+)
 
-EARTH_RADIUS_METERS = 6_371_000
-GEOFENCE_RULE_VERSION = "4B-1"
+GEOFENCE_RULE_VERSION = "4B-2B"
 MARK_TYPES = {"ENTRADA", "SALIDA"}
 
 
 class AttendanceMarkError(ValueError):
     pass
-
-
-@dataclass(frozen=True)
-class GeoEvaluationResult:
-    place_id: int | None
-    distance_m: Decimal | None
-    radius_m: Decimal | None
-    geofence_status: str
-    accuracy_status: str
-    max_accuracy_m: Decimal
 
 
 @dataclass(frozen=True)
@@ -103,62 +91,6 @@ def get_attendance_mark_feedback(
     )
 
 
-def haversine_distance_m(
-    latitude_a: Decimal,
-    longitude_a: Decimal,
-    latitude_b: Decimal,
-    longitude_b: Decimal,
-) -> Decimal:
-    lat_a, lon_a, lat_b, lon_b = map(
-        radians, map(float, (latitude_a, longitude_a, latitude_b, longitude_b))
-    )
-    delta_lat = lat_b - lat_a
-    delta_lon = lon_b - lon_a
-    value = sin(delta_lat / 2) ** 2 + cos(lat_a) * cos(lat_b) * sin(delta_lon / 2) ** 2
-    distance = 2 * EARTH_RADIUS_METERS * asin(sqrt(value))
-    return Decimal(str(distance)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-
-
-def evaluate_geolocation(
-    evidence: EvidenciaGPSCreate,
-    places: Iterable[LugarTrabajo],
-    max_accuracy_m: int | None = None,
-) -> GeoEvaluationResult:
-    applied_accuracy = Decimal(
-        attendance_max_gps_accuracy_meters() if max_accuracy_m is None else max_accuracy_m
-    )
-    candidates: list[tuple[Decimal, LugarTrabajo]] = []
-    for place in places:
-        if not place.activo or place.latitud is None or place.longitud is None or place.radio_metros is None:
-            continue
-        distance = haversine_distance_m(
-            evidence.latitud, evidence.longitud, place.latitud, place.longitud
-        )
-        candidates.append((distance, place))
-
-    accuracy_status = "BAJA_PRECISION" if evidence.precision_m > applied_accuracy else "ACEPTABLE"
-    if not candidates:
-        return GeoEvaluationResult(
-            place_id=None,
-            distance_m=None,
-            radius_m=None,
-            geofence_status="SIN_ZONA_CONFIGURADA",
-            accuracy_status=accuracy_status,
-            max_accuracy_m=applied_accuracy,
-        )
-
-    distance, nearest = min(candidates, key=lambda item: item[0])
-    radius = Decimal(nearest.radio_metros)
-    return GeoEvaluationResult(
-        place_id=nearest.id,
-        distance_m=distance,
-        radius_m=radius,
-        geofence_status="DENTRO_RANGO" if distance <= radius else "FUERA_RANGO",
-        accuracy_status=accuracy_status,
-        max_accuracy_m=applied_accuracy,
-    )
-
-
 def _locked_worker(db: Session, worker: Trabajador) -> Trabajador:
     persisted = db.scalar(
         select(Trabajador).where(Trabajador.id == worker.id).with_for_update()
@@ -184,9 +116,7 @@ def _active_places(db: Session) -> list[LugarTrabajo]:
         db.scalars(
             select(LugarTrabajo).where(
                 LugarTrabajo.activo.is_(True),
-                LugarTrabajo.latitud.is_not(None),
-                LugarTrabajo.longitud.is_not(None),
-                LugarTrabajo.radio_metros.is_not(None),
+                LugarTrabajo.tipo_geocerca.is_not(None),
             )
         ).all()
     )
@@ -214,6 +144,9 @@ def _attach_geolocation(
             lugar_detectado_id=evaluation.place_id,
             distancia_m=evaluation.distance_m,
             radio_m_aplicado=evaluation.radius_m,
+            tolerancia_m_aplicada=evaluation.tolerance_m,
+            tipo_geocerca_aplicado=evaluation.geofence_type,
+            geometria_version=evaluation.geometry_version,
             estado_geocerca=evaluation.geofence_status,
             estado_precision=evaluation.accuracy_status,
             max_precision_m_aplicada=evaluation.max_accuracy_m,
@@ -298,6 +231,11 @@ def register_attendance_mark(
     except AttendanceMarkError:
         db.rollback()
         raise
+    except GeofenceConfigurationError as exc:
+        db.rollback()
+        raise AttendanceMarkError(
+            "La configuración geográfica no está disponible. Intenta nuevamente o contacta a un administrador."
+        ) from exc
     except IntegrityError as exc:
         db.rollback()
         if normalized_type == "ENTRADA":

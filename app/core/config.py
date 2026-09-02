@@ -89,6 +89,10 @@ def attendance_max_gps_accuracy_meters() -> int:
     return _positive_int("ATTENDANCE_MAX_GPS_ACCURACY_METERS", 100)
 
 
+def attendance_commune_boundary_tolerance_meters() -> int:
+    return _positive_int("ATTENDANCE_COMMUNE_BOUNDARY_TOLERANCE_METERS", 100)
+
+
 def _time_value(name: str, default: str) -> time:
     raw_value = os.getenv(name, default).strip()
     if re.fullmatch(r"(?:[01]\d|2[0-3]):[0-5]\d", raw_value) is None:

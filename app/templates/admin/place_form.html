@@ -1,1 +1,31 @@
-{% extends "base.html" %}{% block title %}{{ page_title }} | BOLIKLOR{% endblock %}{% block body %}{% include "partials/sidebar.html" %}<div class="main-wrapper">{% include "partials/topbar.html" %}<main class="content"><section class="history-heading"><div><h2>{{ page_title }}</h2><p>No inventes coordenadas: deja los campos vacíos hasta obtener datos reales.</p></div><a class="btn btn-light" href="{{ url_for('admin_places') }}">Volver</a></section>{% if error %}<div class="alert alert-danger">{{ error }}</div>{% endif %}<form class="form-card admin-form" method="post" action="{{ url_for('admin_update_place', place_id=place.id) if place else url_for('admin_create_place') }}"><div><label class="field-label">Nombre</label><input class="form-control" name="nombre" value="{{ place.nombre if place else '' }}" required></div><div><label class="field-label">Tipo</label><select class="form-select" name="tipo">{% for item in ['BASE','TALLER','TERRENO'] %}<option{% if place and place.tipo == item %} selected{% endif %}>{{ item }}</option>{% endfor %}</select></div><div><label class="field-label">Comuna</label><input class="form-control" name="comuna" value="{{ place.comuna or '' if place else '' }}"></div><div><label class="field-label">Dirección</label><input class="form-control" name="direccion" value="{{ place.direccion or '' if place else '' }}"></div><div><label class="field-label">Latitud</label><input class="form-control" name="latitud" value="{{ place.latitud if place and place.latitud is not none else '' }}"></div><div><label class="field-label">Longitud</label><input class="form-control" name="longitud" value="{{ place.longitud if place and place.longitud is not none else '' }}"></div><div><label class="field-label">Radio permitido (m)</label><input class="form-control" name="radio_metros" value="{{ place.radio_metros if place and place.radio_metros is not none else '' }}"></div><label class="form-check"><input class="form-check-input" type="checkbox" name="activo"{% if not place or place.activo %} checked{% endif %}> Lugar activo</label><div class="form-actions"><button class="btn btn-brand">Guardar lugar</button></div></form></main></div>{% endblock %}
+{% extends "base.html" %}
+{% block title %}{{ page_title }} | BOLIKLOR{% endblock %}
+{% block body %}
+{% include "partials/sidebar.html" %}
+<div class="main-wrapper">
+  {% include "partials/topbar.html" %}
+  <main class="content">
+    <section class="history-heading"><div><h2>{{ page_title }}</h2><p>RADIO usa un punto y radio. COMUNA usa el polígono oficial identificado por CUT_COM; las coordenadas son solo referencia.</p></div><a class="btn btn-light" href="{{ url_for('admin_places') }}">Volver</a></section>
+    {% if error %}<div class="alert alert-danger">{{ error }}</div>{% endif %}
+    <form class="form-card admin-form" method="post" action="{{ url_for('admin_update_place', place_id=place.id) if place else url_for('admin_create_place') }}">
+      <input type="hidden" name="csrf_token" value="{{ request.cookies.get('boliklor_csrf', '') }}">
+      <div><label class="field-label" for="nombre">Nombre</label><input class="form-control" id="nombre" name="nombre" value="{{ place.nombre if place else '' }}" required></div>
+      <div><label class="field-label" for="tipo">Tipo de lugar</label><select class="form-select" id="tipo" name="tipo">{% for item in ['BASE','TALLER','TERRENO'] %}<option{% if place and place.tipo == item %} selected{% endif %}>{{ item }}</option>{% endfor %}</select></div>
+      <div><label class="field-label" for="tipo_geocerca">Tipo de geocerca</label><select class="form-select" id="tipo_geocerca" name="tipo_geocerca"><option value="">Sin configurar</option>{% for item in ['RADIO','COMUNA'] %}<option{% if place and place.tipo_geocerca == item %} selected{% endif %}>{{ item }}</option>{% endfor %}</select></div>
+      <div><label class="field-label" for="codigo_comuna">Comuna oficial (COMUNA)</label><select class="form-select" id="codigo_comuna" name="codigo_comuna"><option value="">No aplica</option>{% for code, name in communes %}<option value="{{ code }}"{% if place and place.codigo_comuna == code %} selected{% endif %}>{{ code }} — {{ name }}</option>{% endfor %}</select></div>
+      <div><label class="field-label" for="comuna">Comuna descriptiva (RADIO/sin geocerca)</label><input class="form-control" id="comuna" name="comuna" value="{{ place.comuna or '' if place else '' }}"></div>
+      <div><label class="field-label" for="direccion">Dirección</label><input class="form-control" id="direccion" name="direccion" value="{{ place.direccion or '' if place else '' }}"></div>
+      <div><label class="field-label" for="latitud">Latitud de referencia</label><input class="form-control" id="latitud" name="latitud" inputmode="decimal" value="{{ place.latitud if place and place.latitud is not none else '' }}"></div>
+      <div><label class="field-label" for="longitud">Longitud de referencia</label><input class="form-control" id="longitud" name="longitud" inputmode="decimal" value="{{ place.longitud if place and place.longitud is not none else '' }}"></div>
+      <div><label class="field-label" for="radio_metros">Radio permitido en metros (solo RADIO)</label><input class="form-control" id="radio_metros" name="radio_metros" inputmode="decimal" value="{{ place.radio_metros if place and place.radio_metros is not none else '' }}"></div>
+      <div><label class="field-label" for="prioridad_geocerca">Prioridad geocerca</label><input class="form-control" id="prioridad_geocerca" name="prioridad_geocerca" type="number" min="1" value="{{ place.prioridad_geocerca if place else 100 }}" required><div class="form-text">Un número menor tiene precedencia cuando dos zonas producen el mismo estado.</div></div>
+      {% if place %}
+      <div><span class="field-label">Estado</span><div class="readonly-value"><span class="badge-status {{ 'badge-status--success' if place.activo else 'badge-status--neutral' }}">{{ 'ACTIVO' if place.activo else 'INACTIVO' }}</span></div><div class="form-text">Activa o desactiva esta zona desde el listado de lugares.</div></div>
+      {% else %}
+      <label class="form-check"><input class="form-check-input" type="checkbox" name="activo" checked> Lugar activo</label>
+      {% endif %}
+      <div class="form-actions"><button class="btn btn-brand">Guardar lugar</button></div>
+    </form>
+  </main>
+</div>
+{% endblock %}

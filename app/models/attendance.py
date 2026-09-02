@@ -9,15 +9,41 @@ from app.database.base import Base
 
 class LugarTrabajo(Base):
     __tablename__ = "lugares_trabajo"
-    __table_args__ = (UniqueConstraint("nombre", name="uq_lugares_trabajo_nombre"), CheckConstraint("tipo IN ('BASE','TALLER','TERRENO')", name="ck_lugares_trabajo_tipo"), CheckConstraint("latitud IS NULL OR latitud BETWEEN -90 AND 90", name="ck_lugares_latitud"), CheckConstraint("longitud IS NULL OR longitud BETWEEN -180 AND 180", name="ck_lugares_longitud"), CheckConstraint("radio_metros IS NULL OR radio_metros > 0", name="ck_lugares_radio"))
+    __table_args__ = (
+        UniqueConstraint("nombre", name="uq_lugares_trabajo_nombre"),
+        CheckConstraint("tipo IN ('BASE','TALLER','TERRENO')", name="ck_lugares_trabajo_tipo"),
+        CheckConstraint("tipo_geocerca IS NULL OR tipo_geocerca IN ('RADIO','COMUNA')", name="ck_lugares_tipo_geocerca"),
+        CheckConstraint("latitud IS NULL OR latitud BETWEEN -90 AND 90", name="ck_lugares_latitud"),
+        CheckConstraint("longitud IS NULL OR longitud BETWEEN -180 AND 180", name="ck_lugares_longitud"),
+        CheckConstraint("radio_metros IS NULL OR radio_metros > 0", name="ck_lugares_radio"),
+        CheckConstraint("prioridad_geocerca > 0", name="ck_lugares_prioridad_geocerca"),
+        CheckConstraint(
+            "tipo_geocerca <> 'RADIO' OR (latitud IS NOT NULL AND longitud IS NOT NULL AND radio_metros IS NOT NULL)",
+            name="ck_lugares_geocerca_radio_configurada",
+        ),
+        CheckConstraint(
+            "tipo_geocerca <> 'COMUNA' OR (codigo_comuna IS NOT NULL AND latitud IS NOT NULL AND longitud IS NOT NULL AND radio_metros IS NULL)",
+            name="ck_lugares_geocerca_comuna_configurada",
+        ),
+        Index(
+            "uq_lugares_geocerca_comuna_activa",
+            "codigo_comuna",
+            unique=True,
+            postgresql_where=text("activo AND tipo_geocerca = 'COMUNA'"),
+            sqlite_where=text("activo = 1 AND tipo_geocerca = 'COMUNA'"),
+        ),
+    )
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     nombre: Mapped[str] = mapped_column(String(200), nullable=False)
     tipo: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
     comuna: Mapped[str | None] = mapped_column(String(120))
     direccion: Mapped[str | None] = mapped_column(String(300))
-    latitud: Mapped[Decimal | None] = mapped_column(Numeric(9, 6))
-    longitud: Mapped[Decimal | None] = mapped_column(Numeric(10, 6))
+    tipo_geocerca: Mapped[str | None] = mapped_column(String(10), index=True)
+    codigo_comuna: Mapped[str | None] = mapped_column(String(10), index=True)
+    latitud: Mapped[Decimal | None] = mapped_column(Numeric(18, 15))
+    longitud: Mapped[Decimal | None] = mapped_column(Numeric(18, 15))
     radio_metros: Mapped[Decimal | None] = mapped_column(Numeric(8, 2))
+    prioridad_geocerca: Mapped[int] = mapped_column(Integer, nullable=False, default=100, server_default="100")
     activo: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true", index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
@@ -142,16 +168,18 @@ class EvaluacionGeograficaMarcaje(Base):
     __table_args__ = (
         UniqueConstraint("marcaje_id", name="uq_evaluaciones_geograficas_marcaje"),
         CheckConstraint(
-            "estado_geocerca IN ('DENTRO_RANGO','FUERA_RANGO','SIN_ZONA_CONFIGURADA')",
+            "estado_geocerca IN ('DENTRO_RANGO','DENTRO_TOLERANCIA','FUERA_RANGO','SIN_ZONA_CONFIGURADA')",
             name="ck_evaluaciones_geograficas_estado",
         ),
         CheckConstraint("estado_precision IN ('ACEPTABLE','BAJA_PRECISION')", name="ck_evaluaciones_geograficas_precision"),
         CheckConstraint("distancia_m IS NULL OR distancia_m >= 0", name="ck_evaluaciones_geograficas_distancia"),
         CheckConstraint("radio_m_aplicado IS NULL OR radio_m_aplicado > 0", name="ck_evaluaciones_geograficas_radio"),
+        CheckConstraint("tolerancia_m_aplicada IS NULL OR tolerancia_m_aplicada > 0", name="ck_evaluaciones_geograficas_tolerancia"),
         CheckConstraint("max_precision_m_aplicada > 0", name="ck_evaluaciones_geograficas_max_precision"),
         CheckConstraint(
-            "(lugar_detectado_id IS NULL AND estado_geocerca = 'SIN_ZONA_CONFIGURADA' AND distancia_m IS NULL AND radio_m_aplicado IS NULL) OR "
-            "(lugar_detectado_id IS NOT NULL AND estado_geocerca IN ('DENTRO_RANGO','FUERA_RANGO') AND distancia_m IS NOT NULL AND radio_m_aplicado IS NOT NULL)",
+            "(lugar_detectado_id IS NULL AND estado_geocerca = 'SIN_ZONA_CONFIGURADA' AND distancia_m IS NULL AND radio_m_aplicado IS NULL AND tolerancia_m_aplicada IS NULL AND tipo_geocerca_aplicado IS NULL AND geometria_version IS NULL) OR "
+            "(lugar_detectado_id IS NOT NULL AND tipo_geocerca_aplicado = 'RADIO' AND estado_geocerca IN ('DENTRO_RANGO','FUERA_RANGO') AND distancia_m IS NOT NULL AND radio_m_aplicado IS NOT NULL AND tolerancia_m_aplicada IS NULL AND geometria_version IS NULL) OR "
+            "(lugar_detectado_id IS NOT NULL AND tipo_geocerca_aplicado = 'COMUNA' AND estado_geocerca IN ('DENTRO_RANGO','DENTRO_TOLERANCIA','FUERA_RANGO') AND distancia_m IS NOT NULL AND radio_m_aplicado IS NULL AND tolerancia_m_aplicada IS NOT NULL AND geometria_version IS NOT NULL)",
             name="ck_evaluaciones_geograficas_zona_coherente",
         ),
     )
@@ -160,6 +188,9 @@ class EvaluacionGeograficaMarcaje(Base):
     lugar_detectado_id: Mapped[int | None] = mapped_column(ForeignKey("lugares_trabajo.id", ondelete="RESTRICT"), index=True)
     distancia_m: Mapped[Decimal | None] = mapped_column(Numeric(10, 2))
     radio_m_aplicado: Mapped[Decimal | None] = mapped_column(Numeric(8, 2))
+    tolerancia_m_aplicada: Mapped[Decimal | None] = mapped_column(Numeric(8, 2))
+    tipo_geocerca_aplicado: Mapped[str | None] = mapped_column(String(10))
+    geometria_version: Mapped[str | None] = mapped_column(String(80))
     estado_geocerca: Mapped[str] = mapped_column(String(30), nullable=False, index=True)
     estado_precision: Mapped[str] = mapped_column(String(30), nullable=False, index=True)
     max_precision_m_aplicada: Mapped[Decimal] = mapped_column(Numeric(8, 2), nullable=False)

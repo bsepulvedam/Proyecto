@@ -5,7 +5,7 @@ from pathlib import Path
 
 from fastapi import UploadFile
 from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.config import justification_max_bytes, justification_storage_dir
@@ -17,6 +17,8 @@ from app.models.attendance import (
     Turno,
 )
 from app.models.identity import Trabajador, Usuario
+from app.schemas.attendance import PlaceData
+from app.services.attendance_geofence_service import commune_display_name
 from app.services.auth_service import IdentityError
 
 JUSTIFICATION_TYPES = ("LICENCIA_MEDICA", "TRAMITE", "COORDINACION_JEFATURA", "OTRO")
@@ -27,11 +29,25 @@ def list_places(db: Session): return list(db.scalars(select(LugarTrabajo).order_
 def get_place(db: Session, place_id: int): return db.get(LugarTrabajo, place_id)
 
 
-def save_place(db: Session, values: dict, place: LugarTrabajo | None = None):
+def save_place(db: Session, values: PlaceData | dict, place: LugarTrabajo | None = None):
+    data = values if isinstance(values, PlaceData) else PlaceData.model_validate(values)
+    normalized = data.model_dump()
+    if data.tipo_geocerca == "COMUNA":
+        normalized["comuna"] = commune_display_name(data.codigo_comuna or "")
     target = place or LugarTrabajo()
-    for key, value in values.items(): setattr(target, key, value)
+    for key, value in normalized.items(): setattr(target, key, value)
     try: db.add(target); db.commit(); db.refresh(target); return target
     except IntegrityError as exc: db.rollback(); raise IdentityError("El nombre del lugar ya existe o los datos no son válidos.") from exc
+
+
+def set_place_active(db: Session, place: LugarTrabajo, active: bool) -> LugarTrabajo:
+    place.activo = active
+    try:
+        db.commit()
+        return place
+    except SQLAlchemyError as exc:
+        db.rollback()
+        raise IdentityError("No fue posible actualizar el estado de la zona.") from exc
 
 
 def create_assignment(db: Session, worker_id: int, place_id: int, desde: datetime, hasta: datetime | None, active: bool, creator_id: int):

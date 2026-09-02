@@ -3,7 +3,9 @@ import os
 import re
 import tempfile
 import unittest
+from unittest.mock import patch
 from datetime import date, datetime, time, timezone
+from html import unescape
 from io import BytesIO
 from pathlib import Path
 
@@ -100,9 +102,117 @@ class AttendanceStructureTests(unittest.TestCase):
         edited = admin.post(f"/admin/lugares/{place.id}", {"csrf_token": admin.cookies["boliklor_csrf"], "nombre": "Obra Norte", "tipo": "TERRENO", "comuna": "Colina"})
         self.assertEqual(edited.status_code, 303)
         with self.Session() as db:
+            self.assertTrue(db.get(LugarTrabajo, place.id).activo)
+
+        listing = admin.get("/admin/lugares")
+        self.assertIn('data-place-name="Obra Norte"', listing.text)
+        self.assertIn('type="button" data-place-state-trigger', listing.text)
+        self.assertIn('data-bs-dismiss="modal">No</button>', listing.text)
+        self.assertIn("admin-places.js", listing.text)
+        with self.Session() as db:
+            self.assertTrue(db.get(LugarTrabajo, place.id).activo)
+
+        deactivated = admin.post(f"/admin/lugares/{place.id}/estado", {
+            "csrf_token": admin.cookies["boliklor_csrf"], "activo": "0",
+        })
+        self.assertEqual(deactivated.status_code, 303)
+        deactivated_page = admin.get(deactivated.headers["location"])
+        self.assertIn('Zona "Obra Norte" desactivada correctamente.', unescape(deactivated_page.text))
+        self.assertIn('role="status"', deactivated_page.text)
+        self.assertIn('aria-live="polite"', deactivated_page.text)
+        with self.Session() as db:
             self.assertFalse(db.get(LugarTrabajo, place.id).activo)
+
+        activated = admin.post(f"/admin/lugares/{place.id}/estado", {
+            "csrf_token": admin.cookies["boliklor_csrf"], "activo": "1",
+        })
+        self.assertEqual(activated.status_code, 303)
+        activated_page = admin.get(activated.headers["location"])
+        self.assertIn('Zona "Obra Norte" activada correctamente.', unescape(activated_page.text))
+        with self.Session() as db:
+            self.assertTrue(db.get(LugarTrabajo, place.id).activo)
+
+        script = Path("app/static/js/admin-places.js").read_text(encoding="utf-8")
+        self.assertIn('message.textContent = `¿Deseas ${action} "${name}"?`', script)
+        self.assertIn("pendingForm.requestSubmit()", script)
+        self.assertNotIn("window.confirm", script)
         worker = ASGIClient(); self.login(worker, "ana", "Clave-Trabajador-123")
         self.assertEqual(worker.get("/admin/lugares").status_code, 403)
+
+    def test_admin_configures_commune_by_official_code_and_can_deactivate_it(self):
+        admin = ASGIClient(); self.login(admin, "admin", "Clave-Admin-Segura-123")
+        payload = {
+            "csrf_token": admin.cookies["boliklor_csrf"],
+            "nombre": "Zona comunal Colina",
+            "tipo": "TERRENO",
+            "tipo_geocerca": "COMUNA",
+            "codigo_comuna": "13301",
+            "latitud": "-33.2023",
+            "longitud": "-70.6749",
+            "prioridad_geocerca": "20",
+            "activo": "1",
+        }
+        created = admin.post("/admin/lugares", payload)
+        self.assertEqual(created.status_code, 303)
+        with self.Session() as db:
+            place = db.scalar(select(LugarTrabajo).where(LugarTrabajo.nombre == "Zona comunal Colina"))
+            self.assertEqual((place.tipo_geocerca, place.codigo_comuna, place.comuna), ("COMUNA", "13301", "Colina"))
+            self.assertIsNone(place.radio_metros)
+            place_id = place.id
+        edited = admin.post(f"/admin/lugares/{place_id}/estado", {
+            "csrf_token": admin.cookies["boliklor_csrf"], "activo": "0",
+        })
+        self.assertEqual(edited.status_code, 303)
+        with self.Session() as db:
+            self.assertFalse(db.get(LugarTrabajo, place_id).activo)
+        payload.pop("activo")
+        payload.update({"nombre": "Zona inválida", "codigo_comuna": "99999", "activo": "1"})
+        self.assertEqual(admin.post("/admin/lugares", payload).status_code, 422)
+
+    def test_place_state_change_requires_admin_and_csrf(self):
+        with self.Session() as db:
+            place = save_place(db, {"nombre": "Zona protegida", "tipo": "TERRENO", "activo": True})
+            place_id = place.id
+
+        admin = ASGIClient(); self.login(admin, "admin", "Clave-Admin-Segura-123")
+        self.assertEqual(
+            admin.post(f"/admin/lugares/{place_id}/estado", {"activo": "0"}).status_code,
+            403,
+        )
+        worker = ASGIClient(); self.login(worker, "ana", "Clave-Trabajador-123")
+        self.assertEqual(
+            worker.post(f"/admin/lugares/{place_id}/estado", {
+                "csrf_token": worker.cookies["boliklor_csrf"], "activo": "0",
+            }).status_code,
+            403,
+        )
+        invalid = admin.post(f"/admin/lugares/{place_id}/estado", {
+            "csrf_token": admin.cookies["boliklor_csrf"], "activo": "desconocido",
+        })
+        self.assertEqual(invalid.status_code, 422)
+        self.assertIn("El estado solicitado no es válido.", invalid.text)
+        with self.Session() as db:
+            self.assertTrue(db.get(LugarTrabajo, place_id).activo)
+
+    def test_place_state_backend_error_has_no_success_and_keeps_state(self):
+        with self.Session() as db:
+            place = save_place(db, {"nombre": "Zona con error", "tipo": "TERRENO", "activo": True})
+            place_id = place.id
+
+        admin = ASGIClient(); self.login(admin, "admin", "Clave-Admin-Segura-123")
+        with patch("app.web.admin.set_place_active", side_effect=IdentityError("Falla interna simulada")):
+            response = admin.post(f"/admin/lugares/{place_id}/estado", {
+                "csrf_token": admin.cookies["boliklor_csrf"], "activo": "0",
+            })
+
+        self.assertEqual(response.status_code, 422)
+        self.assertIn('No fue posible desactivar la zona "Zona con error".', unescape(response.text))
+        self.assertIn('role="alert"', response.text)
+        self.assertIn('aria-live="assertive"', response.text)
+        self.assertNotIn("desactivada correctamente", response.text)
+        self.assertNotIn("Falla interna simulada", response.text)
+        with self.Session() as db:
+            self.assertTrue(db.get(LugarTrabajo, place_id).activo)
 
     def test_assignments_preserve_history_when_place_is_inactive(self):
         with self.Session() as db:

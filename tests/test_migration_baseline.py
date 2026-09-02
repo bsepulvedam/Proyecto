@@ -13,9 +13,9 @@ import app.models  # noqa: F401
 class MigrationBaselineTests(unittest.TestCase):
     def test_migration_history_is_single_linear_chain(self):
         scripts = ScriptDirectory.from_config(Config("alembic.ini"))
-        self.assertEqual(scripts.get_heads(), ["20260831_07"])
+        self.assertEqual(scripts.get_heads(), ["20260901_08"])
         revisions = list(scripts.walk_revisions())
-        self.assertEqual(len(revisions), 7)
+        self.assertEqual(len(revisions), 8)
         for newer, older in zip(revisions, revisions[1:]):
             self.assertEqual(newer.down_revision, older.revision)
         self.assertIsNone(revisions[-1].down_revision)

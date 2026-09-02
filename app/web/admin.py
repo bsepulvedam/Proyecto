@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.database.session import get_db
 from app.core.time import app_timezone, local_datetime
+from app.schemas.attendance import PlaceData
 from app.schemas.identity import AdminUserData, WorkerData
 from app.services.auth_service import IdentityError
 from app.services.identity_admin_service import (
@@ -18,7 +19,15 @@ from app.services.identity_admin_service import (
     list_workers, reset_password, save_worker, set_user_active,
 )
 from app.services.inventario_catalogo_service import listar_empresas
-from app.services.attendance_service import create_assignment, get_place, list_assignments, list_places, save_place
+from app.services.attendance_service import (
+    create_assignment,
+    get_place,
+    list_assignments,
+    list_places,
+    save_place,
+    set_place_active,
+)
+from app.services.attendance_geofence_service import GeofenceConfigurationError, commune_options
 
 
 router = APIRouter(prefix="/admin", tags=["administracion-identidad"])
@@ -105,30 +114,77 @@ def users(request: Request, db: Session = Depends(get_db)):
         users=list_users(db), active_page="admin_users", page_title="Usuarios"))
 
 
-def _place_values(form):
+def _place_values(form, *, active: bool | None = None):
     def decimal(name):
         return Decimal(_value(form, name).replace(",", ".")) if _value(form, name) else None
-    return {"nombre": _value(form, "nombre"), "tipo": _value(form, "tipo").upper(), "comuna": _value(form, "comuna") or None,
-        "direccion": _value(form, "direccion") or None, "latitud": decimal("latitud"), "longitud": decimal("longitud"),
-        "radio_metros": decimal("radio_metros"), "activo": "activo" in form}
+    return PlaceData(
+        nombre=_value(form, "nombre"),
+        tipo=_value(form, "tipo").upper(),
+        comuna=_value(form, "comuna") or None,
+        direccion=_value(form, "direccion") or None,
+        tipo_geocerca=_value(form, "tipo_geocerca").upper() or None,
+        codigo_comuna=_value(form, "codigo_comuna") or None,
+        latitud=decimal("latitud"),
+        longitud=decimal("longitud"),
+        radio_metros=decimal("radio_metros"),
+        prioridad_geocerca=int(_value(form, "prioridad_geocerca") or "100"),
+        activo="activo" in form if active is None else active,
+    )
+
+
+def _place_context(**values):
+    return _context(communes=commune_options(), **values)
+
+
+def _places_response(
+    request: Request,
+    db: Session,
+    *,
+    notification: dict[str, str] | None = None,
+    status_code: int = status.HTTP_200_OK,
+):
+    return templates.TemplateResponse(
+        request=request,
+        name="admin/places.html",
+        context=_context(
+            places=list_places(db),
+            notification=notification,
+            active_page="admin_places",
+            page_title="Lugares de trabajo",
+        ),
+        status_code=status_code,
+    )
 
 
 @router.get("/lugares", response_class=HTMLResponse, name="admin_places")
-def places(request: Request, db: Session = Depends(get_db)):
-    return templates.TemplateResponse(request=request, name="admin/places.html", context=_context(places=list_places(db), active_page="admin_places", page_title="Lugares de trabajo"))
+def places(
+    request: Request,
+    estado_actualizado: int | None = None,
+    db: Session = Depends(get_db),
+):
+    notification = None
+    if estado_actualizado is not None:
+        place = get_place(db, estado_actualizado)
+        if place is not None:
+            action = "activada" if place.activo else "desactivada"
+            notification = {
+                "level": "success",
+                "text": f'Zona "{place.nombre}" {action} correctamente.',
+            }
+    return _places_response(request, db, notification=notification)
 
 
 @router.get("/lugares/nuevo", response_class=HTMLResponse, name="admin_new_place")
 def new_place(request: Request):
-    return templates.TemplateResponse(request=request, name="admin/place_form.html", context=_context(place=None, error=None, active_page="admin_places", page_title="Nuevo lugar"))
+    return templates.TemplateResponse(request=request, name="admin/place_form.html", context=_place_context(place=None, error=None, active_page="admin_places", page_title="Nuevo lugar"))
 
 
 @router.post("/lugares", name="admin_create_place")
 async def create_place(request: Request, db: Session = Depends(get_db)):
     form = await _form(request)
     try: place = save_place(db, _place_values(form))
-    except (IdentityError, InvalidOperation, ValueError) as exc:
-        return templates.TemplateResponse(request=request, name="admin/place_form.html", context=_context(place=None, error=str(exc), active_page="admin_places", page_title="Nuevo lugar"), status_code=422)
+    except (IdentityError, InvalidOperation, ValueError, ValidationError, GeofenceConfigurationError) as exc:
+        return templates.TemplateResponse(request=request, name="admin/place_form.html", context=_place_context(place=None, error=str(exc), active_page="admin_places", page_title="Nuevo lugar"), status_code=422)
     return RedirectResponse(f"/admin/lugares/{place.id}", status_code=303)
 
 
@@ -136,17 +192,59 @@ async def create_place(request: Request, db: Session = Depends(get_db)):
 def place_detail(request: Request, place_id: int, db: Session = Depends(get_db)):
     place = get_place(db, place_id)
     if place is None: return HTMLResponse("Lugar no encontrado", status_code=404)
-    return templates.TemplateResponse(request=request, name="admin/place_form.html", context=_context(place=place, error=None, active_page="admin_places", page_title="Editar lugar"))
+    return templates.TemplateResponse(request=request, name="admin/place_form.html", context=_place_context(place=place, error=None, active_page="admin_places", page_title="Editar lugar"))
 
 
 @router.post("/lugares/{place_id}", name="admin_update_place")
 async def update_place(request: Request, place_id: int, db: Session = Depends(get_db)):
     place, form = get_place(db, place_id), await _form(request)
     if place is None: return HTMLResponse("Lugar no encontrado", status_code=404)
-    try: save_place(db, _place_values(form), place)
-    except (IdentityError, InvalidOperation, ValueError) as exc:
-        return templates.TemplateResponse(request=request, name="admin/place_form.html", context=_context(place=place, error=str(exc), active_page="admin_places", page_title="Editar lugar"), status_code=422)
+    try: save_place(db, _place_values(form, active=place.activo), place)
+    except (IdentityError, InvalidOperation, ValueError, ValidationError, GeofenceConfigurationError) as exc:
+        return templates.TemplateResponse(request=request, name="admin/place_form.html", context=_place_context(place=place, error=str(exc), active_page="admin_places", page_title="Editar lugar"), status_code=422)
     return RedirectResponse(f"/admin/lugares/{place_id}", status_code=303)
+
+
+@router.post("/lugares/{place_id}/estado", name="admin_update_place_state")
+async def update_place_state(request: Request, place_id: int, db: Session = Depends(get_db)):
+    place = get_place(db, place_id)
+    if place is None:
+        return _places_response(
+            request,
+            db,
+            notification={"level": "danger", "text": "La zona solicitada no existe."},
+            status_code=status.HTTP_404_NOT_FOUND,
+        )
+
+    form = await _form(request)
+    requested = _value(form, "activo")
+    if requested not in {"0", "1"}:
+        return _places_response(
+            request,
+            db,
+            notification={"level": "danger", "text": "El estado solicitado no es válido."},
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+        )
+
+    active = requested == "1"
+    action = "activar" if active else "desactivar"
+    place_name = place.nombre
+    try:
+        set_place_active(db, place, active)
+    except IdentityError:
+        return _places_response(
+            request,
+            db,
+            notification={
+                "level": "danger",
+                "text": f'No fue posible {action} la zona "{place_name}". El estado no cambió.',
+            },
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+        )
+    return RedirectResponse(
+        f"/admin/lugares?estado_actualizado={place.id}",
+        status_code=status.HTTP_303_SEE_OTHER,
+    )
 
 
 @router.get("/asignaciones", response_class=HTMLResponse, name="admin_assignments")

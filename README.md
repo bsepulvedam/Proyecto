@@ -151,9 +151,8 @@ Edita tu copia de `.env` sin compartirla ni subirla a Git. Las variables actuale
 | `ATTENDANCE_DAY_SHIFT_START` | Inicio base del turno diurno; valor confirmado: `09:00`. |
 | `ATTENDANCE_DAY_SHIFT_END` | Fin base del turno diurno; valor confirmado: `18:00`. |
 | `ATTENDANCE_NIGHT_SHIFT_START` | Inicio base de la ventana nocturna; valor confirmado: `19:00`. |
-| `ATTENDANCE_NIGHT_SHIFT_END` | Fin base de la ventana nocturna del día siguiente; valor confirmado: `06:00`. |
+| `ATTENDANCE_NIGHT_SHIFT_END` | Fin de referencia nocturno del día siguiente; valor confirmado para 4B-3: `05:00`. |
 | `ATTENDANCE_LATE_TOLERANCE_MINUTES` | Tolerancia base para clasificación derivada de tardanza; valor confirmado: 10. |
-| `ATTENDANCE_DAILY_RATE_CLP` | Tarifa provisional para la futura 4B-3; default `30000`, actualmente no interviene en cálculos. |
 | `JUSTIFICATION_STORAGE_DIR` | Directorio privado de archivos de justificación. |
 | `JUSTIFICATION_MAX_MB` | Tamaño máximo permitido para cada archivo. El valor de referencia actual es 8 MB. |
 | `PRODUCT_IMPORT_FILE` | Ruta opcional al Excel legacy usado por importación y stock transitorio. |
@@ -190,7 +189,7 @@ python -m alembic upgrade head
 El HEAD actual del código es:
 
 ```text
-20260901_08
+20260902_09
 ```
 
 En un clon nuevo, `alembic upgrade head` crea y actualiza todas las tablas hasta esa revisión.

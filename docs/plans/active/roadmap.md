@@ -13,4 +13,4 @@ Staging y operación se construyen en paralelo a las fases 3–5, no como tarea 
 ## Continuidad acordada de Asistencia
 
 - [IMPLEMENTADO 4B-2A] Calendario personal derivado de sesiones/marcajes, parámetros horarios base y separación entre fecha trabajada, sesión y futura jornada pagable.
-- [PENDIENTE 4B-3] Supervisión, reportes y jornadas pagables: listado/búsqueda de trabajadores, filtro mensual, vista individual, incidencias, dobles turnos identificables, intervención ADMIN/JEFATURA y exportación Excel individual/conjunta. La tarifa inicial de referencia es `$30.000 CLP`, sin cálculo implementado todavía.
+- [EN PROGRESO 4B-3] [IMPLEMENTADO EN ÁRBOL 4B-3A] El dominio proyecta actividad, incompletos, situaciones horarias, jornadas pagables, doble turno, tarifa efectiva versionada y total provisional. [IMPLEMENTADO Y VALIDADO EN POSTGRESQL DESECHABLE 4B-3B] Persistencia auditable de SALIDA administrativa, estados/decisión de incidencias y tarifas globales/individuales versionadas. [PENDIENTE 4B-3C+] listado/búsqueda, filtros, vista individual, rutas/UI administrativas y exportación Excel individual/conjunta.

@@ -8,7 +8,6 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.core.config import (
-    attendance_daily_rate_clp,
     attendance_day_shift_end,
     attendance_day_shift_start,
     attendance_late_tolerance_minutes,
@@ -26,6 +25,7 @@ from app.models.attendance import (
 from app.models.empresa import Empresa
 from app.models.identity import Trabajador
 from app.services.attendance_calendar_service import calendar_month
+from app.services.attendance_rules_service import LATE_EXIT
 
 
 class AttendanceCalendarTests(unittest.TestCase):
@@ -124,6 +124,9 @@ class AttendanceCalendarTests(unittest.TestCase):
         day = self.month_days()[2]
         self.assertFalse(day.is_worked_date)
         self.assertEqual((day.status, day.session_count), ("REVISION", 1))
+        self.assertTrue(day.has_activity)
+        self.assertTrue(day.has_incomplete_session)
+        self.assertEqual(day.label, "Actividad registrada · incompleta")
 
     def test_multiple_closed_sessions_remain_one_worked_date(self):
         day = date(2026, 9, 3)
@@ -160,13 +163,12 @@ class AttendanceCalendarTests(unittest.TestCase):
         self.assertEqual((days[20].status, days[20].label), ("NEUTRAL", "Fecha futura"))
         self.assertNotIn("AUSENCIA", {item.status for item in days.values()})
 
-    def test_shift_parameters_and_provisional_rate_are_centralized(self):
+    def test_shift_parameters_are_centralized(self):
         self.assertEqual(attendance_day_shift_start(), time(9, 0))
         self.assertEqual(attendance_day_shift_end(), time(18, 0))
         self.assertEqual(attendance_night_shift_start(), time(19, 0))
-        self.assertEqual(attendance_night_shift_end(), time(6, 0))
+        self.assertEqual(attendance_night_shift_end(), time(5, 0))
         self.assertEqual(attendance_late_tolerance_minutes(), 10)
-        self.assertEqual(attendance_daily_rate_clp(), 30000)
         with patch.dict(os.environ, {"ATTENDANCE_DAY_SHIFT_START": "9am"}):
             with self.assertRaises(RuntimeError):
                 attendance_day_shift_start()
@@ -195,6 +197,7 @@ class AttendanceCalendarTests(unittest.TestCase):
         self.assertEqual((day.status, day.is_worked_date), ("TRABAJADO", True))
         self.assertEqual(day.sessions[0].incident_types, ())
         self.assertEqual(day.sessions[0].duration_minutes, 570)
+        self.assertEqual(day.sessions[0].exit_situation, LATE_EXIT)
 
 
 if __name__ == "__main__":

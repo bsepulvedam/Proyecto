@@ -272,12 +272,27 @@ class AttendanceStructureTests(unittest.TestCase):
                 estado="CERRADA",
                 cerrado_at=exit_at,
             )
-            db.add_all([own_session, other_session]); db.flush()
+            incomplete_session = SesionTrabajo(
+                trabajador_id=self.worker.id,
+                turno_id=shift.id,
+                fecha_operacional=date(2026, 9, 3),
+                estado="ABIERTA",
+            )
+            db.add_all([own_session, other_session, incomplete_session]); db.flush()
             db.add_all([
                 MarcajeAsistencia(sesion_id=own_session.id, tipo="ENTRADA", ocurrido_at=entry_at),
                 MarcajeAsistencia(sesion_id=own_session.id, tipo="SALIDA", ocurrido_at=exit_at),
                 MarcajeAsistencia(sesion_id=other_session.id, tipo="ENTRADA", ocurrido_at=entry_at),
                 MarcajeAsistencia(sesion_id=other_session.id, tipo="SALIDA", ocurrido_at=exit_at),
+                MarcajeAsistencia(
+                    sesion_id=incomplete_session.id,
+                    tipo="ENTRADA",
+                    ocurrido_at=datetime.combine(
+                        date(2026, 9, 3),
+                        time(9, 0),
+                        tzinfo=app_timezone(),
+                    ).astimezone(timezone.utc),
+                ),
             ])
             db.commit()
 
@@ -287,6 +302,8 @@ class AttendanceStructureTests(unittest.TestCase):
         self.assertIn("calendar-day--trabajado", page.text)
         self.assertIn("Fecha trabajada", page.text)
         self.assertIn("Duración: 570 min", page.text)
+        self.assertIn("Actividad registrada · incompleta", page.text)
+        self.assertIn("Jornada incompleta: falta SALIDA", page.text)
         self.assertEqual(page.text.count("Fecha trabajada"), 2)
 
     def test_justifications_text_file_validation_states_and_isolation(self):

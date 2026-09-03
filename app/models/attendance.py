@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import Boolean, CheckConstraint, Date, DateTime, ForeignKey, Index, Integer, Numeric, String, Text, UniqueConstraint, func, text
+from sqlalchemy import Boolean, CheckConstraint, Date, DateTime, ForeignKey, ForeignKeyConstraint, Index, Integer, Numeric, String, Text, UniqueConstraint, func, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database.base import Base
@@ -124,12 +124,22 @@ class SesionTrabajo(Base):
     trabajador: Mapped["Trabajador"] = relationship(back_populates="sesiones_trabajo")
     turno: Mapped[Turno] = relationship()
     marcajes: Mapped[list["MarcajeAsistencia"]] = relationship(back_populates="sesion", order_by="MarcajeAsistencia.ocurrido_at")
+    intervencion_salida: Mapped["IntervencionSalidaAdministrativa | None"] = relationship(
+        back_populates="sesion",
+        uselist=False,
+    )
 
 
 class MarcajeAsistencia(Base):
     __tablename__ = "marcajes_asistencia"
     __table_args__ = (
         UniqueConstraint("sesion_id", "tipo", name="uq_marcajes_asistencia_sesion_tipo"),
+        UniqueConstraint(
+            "id",
+            "sesion_id",
+            "tipo",
+            name="uq_marcajes_asistencia_identidad_sesion_tipo",
+        ),
         CheckConstraint("tipo IN ('ENTRADA','SALIDA')", name="ck_marcajes_asistencia_tipo"),
     )
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -142,6 +152,11 @@ class MarcajeAsistencia(Base):
     evaluacion_geografica: Mapped["EvaluacionGeograficaMarcaje"] = relationship(back_populates="marcaje", uselist=False)
     incidencias: Mapped[list["IncidenciaAsistencia"]] = relationship(back_populates="marcaje")
     correcciones: Mapped[list["CorreccionMarcaje"]] = relationship(back_populates="marcaje")
+    intervencion_salida: Mapped["IntervencionSalidaAdministrativa | None"] = relationship(
+        back_populates="marcaje_salida",
+        uselist=False,
+        viewonly=True,
+    )
 
 
 class EvidenciaGPSMarcaje(Base):
@@ -204,7 +219,12 @@ class IncidenciaAsistencia(Base):
     __tablename__ = "incidencias_asistencia"
     __table_args__ = (
         UniqueConstraint("marcaje_id", "tipo", name="uq_incidencias_asistencia_marcaje_tipo"),
-        CheckConstraint("estado IN ('PENDIENTE','RESUELTA','DESCARTADA')", name="ck_incidencias_asistencia_estado"),
+        CheckConstraint("estado IN ('PENDIENTE','APROBADA','RECHAZADA')", name="ck_incidencias_asistencia_estado"),
+        CheckConstraint(
+            "(estado = 'PENDIENTE' AND resuelto_por_id IS NULL AND resuelto_at IS NULL) OR "
+            "(estado IN ('APROBADA','RECHAZADA') AND resuelto_por_id IS NOT NULL AND resuelto_at IS NOT NULL)",
+            name="ck_incidencias_asistencia_resolucion",
+        ),
     )
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     marcaje_id: Mapped[int] = mapped_column(ForeignKey("marcajes_asistencia.id", ondelete="RESTRICT"), nullable=False, index=True)
@@ -217,6 +237,123 @@ class IncidenciaAsistencia(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     marcaje: Mapped[MarcajeAsistencia] = relationship(back_populates="incidencias")
     resuelto_por: Mapped["Usuario | None"] = relationship(foreign_keys=[resuelto_por_id])
+
+
+class IntervencionSalidaAdministrativa(Base):
+    __tablename__ = "intervenciones_salida_administrativa"
+    __table_args__ = (
+        UniqueConstraint("sesion_id", name="uq_intervenciones_salida_sesion"),
+        UniqueConstraint("marcaje_salida_id", name="uq_intervenciones_salida_marcaje"),
+        ForeignKeyConstraint(
+            ["marcaje_salida_id", "sesion_id", "tipo_marcaje_salida"],
+            [
+                "marcajes_asistencia.id",
+                "marcajes_asistencia.sesion_id",
+                "marcajes_asistencia.tipo",
+            ],
+            name="fk_intervenciones_salida_marcaje_sesion_tipo",
+            ondelete="RESTRICT",
+        ),
+        CheckConstraint(
+            "tipo_intervencion = 'COMPLETAR_SALIDA'",
+            name="ck_intervenciones_salida_tipo",
+        ),
+        CheckConstraint(
+            "tipo_marcaje_salida = 'SALIDA'",
+            name="ck_intervenciones_salida_tipo_marcaje",
+        ),
+        CheckConstraint(
+            "salida_original_ausente",
+            name="ck_intervenciones_salida_original_ausente",
+        ),
+        CheckConstraint(
+            "length(trim(motivo)) > 0",
+            name="ck_intervenciones_salida_motivo",
+        ),
+        Index("ix_intervenciones_salida_actor", "creado_por_id"),
+        Index("ix_intervenciones_salida_created_at", "created_at"),
+    )
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    sesion_id: Mapped[int] = mapped_column(
+        ForeignKey("sesiones_trabajo.id", ondelete="RESTRICT"), nullable=False
+    )
+    marcaje_salida_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    tipo_marcaje_salida: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="SALIDA", server_default="SALIDA"
+    )
+    tipo_intervencion: Mapped[str] = mapped_column(
+        String(30), nullable=False, default="COMPLETAR_SALIDA", server_default="COMPLETAR_SALIDA"
+    )
+    hora_laboral_introducida: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    salida_original_ausente: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default="true"
+    )
+    creado_por_id: Mapped[int] = mapped_column(
+        ForeignKey("usuarios.id", ondelete="RESTRICT"), nullable=False
+    )
+    motivo: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    sesion: Mapped[SesionTrabajo] = relationship(back_populates="intervencion_salida")
+    marcaje_salida: Mapped[MarcajeAsistencia] = relationship(
+        back_populates="intervencion_salida",
+        viewonly=True,
+    )
+    creado_por: Mapped["Usuario"] = relationship(foreign_keys=[creado_por_id])
+
+
+class TarifaProvisionalAsistencia(Base):
+    __tablename__ = "tarifas_provisionales_asistencia"
+    __table_args__ = (
+        CheckConstraint("valor_clp > 0", name="ck_tarifas_asistencia_valor_positivo"),
+        CheckConstraint(
+            "origen IN ('SISTEMA','ADMIN')",
+            name="ck_tarifas_asistencia_origen",
+        ),
+        CheckConstraint(
+            "(origen = 'SISTEMA' AND creado_por_id IS NULL) OR "
+            "(origen = 'ADMIN' AND creado_por_id IS NOT NULL)",
+            name="ck_tarifas_asistencia_actor",
+        ),
+        Index(
+            "uq_tarifas_asistencia_global_fecha",
+            "vigente_desde",
+            unique=True,
+            postgresql_where=text("trabajador_id IS NULL"),
+            sqlite_where=text("trabajador_id IS NULL"),
+        ),
+        Index(
+            "uq_tarifas_asistencia_trabajador_fecha",
+            "trabajador_id",
+            "vigente_desde",
+            unique=True,
+            postgresql_where=text("trabajador_id IS NOT NULL"),
+            sqlite_where=text("trabajador_id IS NOT NULL"),
+        ),
+        Index(
+            "ix_tarifas_asistencia_resolucion",
+            "trabajador_id",
+            "vigente_desde",
+        ),
+    )
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    trabajador_id: Mapped[int | None] = mapped_column(
+        ForeignKey("trabajadores.id", ondelete="RESTRICT")
+    )
+    valor_clp: Mapped[Decimal] = mapped_column(Numeric(12, 0), nullable=False)
+    vigente_desde: Mapped[date] = mapped_column(Date, nullable=False)
+    origen: Mapped[str] = mapped_column(String(20), nullable=False)
+    creado_por_id: Mapped[int | None] = mapped_column(
+        ForeignKey("usuarios.id", ondelete="RESTRICT")
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    trabajador: Mapped["Trabajador | None"] = relationship(foreign_keys=[trabajador_id])
+    creado_por: Mapped["Usuario | None"] = relationship(foreign_keys=[creado_por_id])
 
 
 class CorreccionMarcaje(Base):

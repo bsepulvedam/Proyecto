@@ -48,6 +48,7 @@
               <span>Entrada: {{ session.entry_time.strftime('%H:%M') if session.entry_time else 'Pendiente' }}</span>
               <span>Salida: {{ session.exit_time.strftime('%H:%M') if session.exit_time else 'Pendiente' }}</span>
               <span>Duración: {{ session.duration_minutes ~ ' min' if session.duration_minutes is not none else 'Pendiente' }}</span>
+              {% if session.is_incomplete %}<span>Jornada incompleta: falta SALIDA</span>{% endif %}
               {% if session.is_late %}<span>Tardanza según horario base</span>{% endif %}
               {% if session.incident_types %}<span>Incidencias: {{ session.incident_types|join(', ') }}</span>{% endif %}
             </div>

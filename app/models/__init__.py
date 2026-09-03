@@ -11,11 +11,13 @@ from app.models.attendance import (
     EvaluacionGeograficaMarcaje,
     EvidenciaGPSMarcaje,
     IncidenciaAsistencia,
+    IntervencionSalidaAdministrativa,
     JustificacionInasistencia,
     LugarTrabajo,
     MarcajeAsistencia,
     SesionTrabajo,
+    TarifaProvisionalAsistencia,
     Turno,
 )
 
-__all__ = ["Empresa", "OrdenTrabajo", "Producto", "ProductoOT", "UnidadMedida", "MovimientoInventario", "DetalleMovimientoInventario", "Usuario", "Trabajador", "Rol", "UsuarioRol", "SesionUsuario", "LugarTrabajo", "AsignacionTrabajadorLugar", "Turno", "JustificacionInasistencia", "SesionTrabajo", "MarcajeAsistencia", "EvidenciaGPSMarcaje", "EvaluacionGeograficaMarcaje", "IncidenciaAsistencia", "CorreccionMarcaje"]
+__all__ = ["Empresa", "OrdenTrabajo", "Producto", "ProductoOT", "UnidadMedida", "MovimientoInventario", "DetalleMovimientoInventario", "Usuario", "Trabajador", "Rol", "UsuarioRol", "SesionUsuario", "LugarTrabajo", "AsignacionTrabajadorLugar", "Turno", "JustificacionInasistencia", "SesionTrabajo", "MarcajeAsistencia", "EvidenciaGPSMarcaje", "EvaluacionGeograficaMarcaje", "IncidenciaAsistencia", "IntervencionSalidaAdministrativa", "TarifaProvisionalAsistencia", "CorreccionMarcaje"]

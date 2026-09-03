@@ -23,7 +23,11 @@ flowchart LR
 
 [IMPLEMENTADO 4B-2A] `attendance_calendar_service.py` proyecta sesiones, marcajes e incidencias por fecha operacional sin modificar la evidencia ni calcular remuneración. La ruta personal deriva el Worker autenticado y la plantilla sólo presenta el resultado, sin coordenadas GPS.
 
-[IMPLEMENTADO EN ÁRBOL 4B-2B] `attendance_geofence_service.py` encapsula la evaluación `RADIO`/`COMUNA`. Carga y valida un GeoJSON reducido de SUBDERE, cachea geometrías WGS84 y métricas por proceso, y devuelve un snapshot que el servicio transaccional de marcaje persiste. La detección usa todas las zonas activas y no depende de asignaciones trabajador-lugar.
+[IMPLEMENTADO 4B-2B] `attendance_geofence_service.py` encapsula la evaluación `RADIO`/`COMUNA`. Carga y valida un GeoJSON reducido de SUBDERE, cachea geometrías WGS84 y métricas por proceso, y devuelve un snapshot que el servicio transaccional de marcaje persiste. La detección usa todas las zonas activas y no depende de asignaciones trabajador-lugar.
+
+[IMPLEMENTADO EN ÁRBOL 4B-3A] `attendance_rules_service.py` define la proyección común e inmutable de sesión, día y período. Recibe turno/fecha operacional y marcajes como hechos; deriva actividad, incompleto, situación horaria, jornadas pagables, doble turno, tarifa efectiva versionada y total provisional. El calendario personal reutiliza su proyección de sesión.
+
+[IMPLEMENTADO EN ÁRBOL 4B-3B] `attendance_admin_service.py` crea una SALIDA y su intervención auditable en una transacción con bloqueo de fila, y registra decisiones finales de incidencias sin modificar evidencia. `attendance_rate_service.py` persiste versiones globales/individuales append-only y adapta sus filas al mismo resolvedor de tarifa de 4B-3A. El portal, las rutas administrativas y Excel permanecen para subfases posteriores.
 
 ## Módulos y relaciones
 

@@ -113,15 +113,11 @@ def attendance_night_shift_start() -> time:
 
 
 def attendance_night_shift_end() -> time:
-    return _time_value("ATTENDANCE_NIGHT_SHIFT_END", "06:00")
+    return _time_value("ATTENDANCE_NIGHT_SHIFT_END", "05:00")
 
 
 def attendance_late_tolerance_minutes() -> int:
     return _positive_int("ATTENDANCE_LATE_TOLERANCE_MINUTES", 10)
-
-
-def attendance_daily_rate_clp() -> int:
-    return _positive_int("ATTENDANCE_DAILY_RATE_CLP", 30000)
 
 
 def justification_storage_dir() -> str:

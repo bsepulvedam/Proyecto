@@ -1,33 +1,21 @@
 import calendar
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta, timezone
+from datetime import date
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload, selectinload
 
-from app.core.config import (
-    attendance_day_shift_start,
-    attendance_late_tolerance_minutes,
-    attendance_night_shift_start,
-)
-from app.core.time import app_timezone, local_datetime, operational_date, utc_now
+from app.core.time import operational_date, utc_now
 from app.models.attendance import (
     JustificacionInasistencia,
     MarcajeAsistencia,
     SesionTrabajo,
 )
-
-
-@dataclass(frozen=True)
-class CalendarSessionSummary:
-    shift_code: str
-    shift_name: str
-    entry_time: datetime | None
-    exit_time: datetime | None
-    duration_minutes: int | None
-    is_closed_valid: bool
-    is_late: bool
-    incident_types: tuple[str, ...]
+from app.services.attendance_rules_service import (
+    AttendanceSessionFacts,
+    AttendanceSessionProjection,
+    project_session,
+)
 
 
 @dataclass(frozen=True)
@@ -41,65 +29,37 @@ class AttendanceCalendarDay:
     operational_date: date
     status: str
     label: str
+    has_activity: bool
+    has_incomplete_session: bool
     is_worked_date: bool
     session_count: int
-    sessions: tuple[CalendarSessionSummary, ...]
+    sessions: tuple[AttendanceSessionProjection, ...]
     incident_types: tuple[str, ...]
     justifications: tuple[CalendarJustificationSummary, ...]
 
 
-def _calendar_session_summary(session: SesionTrabajo) -> CalendarSessionSummary:
+def _calendar_session_summary(session: SesionTrabajo) -> AttendanceSessionProjection:
     entry = next((mark for mark in session.marcajes if mark.tipo == "ENTRADA"), None)
     exit_mark = next((mark for mark in session.marcajes if mark.tipo == "SALIDA"), None)
-    entry_time = entry.ocurrido_at if entry else None
-    exit_time = exit_mark.ocurrido_at if exit_mark else None
-    comparable_entry = entry_time if entry_time is None or entry_time.tzinfo else entry_time.replace(tzinfo=timezone.utc)
-    comparable_exit = exit_time if exit_time is None or exit_time.tzinfo else exit_time.replace(tzinfo=timezone.utc)
-    is_closed_valid = bool(
-        session.estado == "CERRADA"
-        and comparable_entry is not None
-        and comparable_exit is not None
-        and comparable_exit >= comparable_entry
+    pending_incidents = tuple(
+        incident
+        for mark in session.marcajes
+        for incident in mark.incidencias
+        if incident.estado == "PENDIENTE"
     )
-    duration_minutes = (
-        int((comparable_exit - comparable_entry).total_seconds() // 60)
-        if is_closed_valid and comparable_entry is not None and comparable_exit is not None
-        else None
-    )
-    incident_types = tuple(
-        sorted(
-            {
-                incident.tipo
-                for mark in session.marcajes
-                for incident in mark.incidencias
-                if incident.estado == "PENDIENTE"
-            }
-        )
-    )
-    expected_start = {
-        "DIURNO": attendance_day_shift_start,
-        "NOCTURNO": attendance_night_shift_start,
-    }.get(session.turno.codigo)
-    is_late = False
-    if comparable_entry is not None and expected_start is not None:
-        expected = datetime.combine(
-            session.fecha_operacional,
-            expected_start(),
-            tzinfo=app_timezone(),
-        )
-        is_late = local_datetime(comparable_entry) > expected + timedelta(
-            minutes=attendance_late_tolerance_minutes()
-        )
-    return CalendarSessionSummary(
+    incident_types = tuple(sorted({incident.tipo for incident in pending_incidents}))
+    return project_session(AttendanceSessionFacts(
+        session_id=session.id,
+        worker_id=session.trabajador_id,
+        operational_date=session.fecha_operacional,
         shift_code=session.turno.codigo,
         shift_name=session.turno.nombre,
-        entry_time=local_datetime(comparable_entry) if comparable_entry else None,
-        exit_time=local_datetime(comparable_exit) if comparable_exit else None,
-        duration_minutes=duration_minutes,
-        is_closed_valid=is_closed_valid,
-        is_late=is_late,
+        recorded_state=session.estado,
+        entry_at=entry.ocurrido_at if entry else None,
+        exit_at=exit_mark.ocurrido_at if exit_mark else None,
+        incident_count=len(pending_incidents),
         incident_types=incident_types,
-    )
+    ))
 
 
 def calendar_month(
@@ -156,6 +116,8 @@ def calendar_month(
             CalendarJustificationSummary(item.tipo, item.estado)
             for item in justifications_by_date.get(target_date, [])
         )
+        has_activity = any(item.has_activity for item in session_summaries)
+        has_incomplete = any(item.is_incomplete for item in session_summaries)
         is_worked = any(item.is_closed_valid for item in session_summaries)
         incident_types = tuple(
             sorted({kind for item in session_summaries for kind in item.incident_types})
@@ -177,7 +139,10 @@ def calendar_month(
             label = "Fecha trabajada · fuera de rango" if is_worked else "Fuera de rango · revisión"
         elif needs_review:
             status = "REVISION"
-            label = "Fecha trabajada · revisión" if is_worked else "Pendiente de revisión"
+            if has_incomplete:
+                label = "Actividad registrada · incompleta"
+            else:
+                label = "Fecha trabajada · revisión" if is_worked else "Pendiente de revisión"
         elif is_worked:
             status = "TRABAJADO"
             label = "Fecha trabajada"
@@ -188,6 +153,8 @@ def calendar_month(
             operational_date=target_date,
             status=status,
             label=label,
+            has_activity=has_activity,
+            has_incomplete_session=has_incomplete,
             is_worked_date=is_worked,
             session_count=len(session_summaries),
             sessions=session_summaries,

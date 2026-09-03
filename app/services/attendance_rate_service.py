@@ -3,7 +3,7 @@ from decimal import Decimal, InvalidOperation
 
 from sqlalchemy import or_, select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.models.attendance import TarifaProvisionalAsistencia
 from app.models.identity import Trabajador, Usuario
@@ -18,6 +18,55 @@ class AttendanceRateError(ValueError):
     pass
 
 
+class AttendanceRateConflict(AttendanceRateError):
+    pass
+
+
+def list_global_rate_versions(
+    db: Session,
+) -> tuple[TarifaProvisionalAsistencia, ...]:
+    return tuple(
+        db.scalars(
+            select(TarifaProvisionalAsistencia)
+            .options(joinedload(TarifaProvisionalAsistencia.creado_por))
+            .where(TarifaProvisionalAsistencia.trabajador_id.is_(None))
+            .order_by(
+                TarifaProvisionalAsistencia.vigente_desde.desc(),
+                TarifaProvisionalAsistencia.id.desc(),
+            )
+        ).all()
+    )
+
+
+def list_worker_rate_versions(
+    db: Session,
+    worker_id: int,
+) -> tuple[TarifaProvisionalAsistencia, ...]:
+    return tuple(
+        db.scalars(
+            select(TarifaProvisionalAsistencia)
+            .options(joinedload(TarifaProvisionalAsistencia.creado_por))
+            .where(TarifaProvisionalAsistencia.trabajador_id == worker_id)
+            .order_by(
+                TarifaProvisionalAsistencia.vigente_desde.desc(),
+                TarifaProvisionalAsistencia.id.desc(),
+            )
+        ).all()
+    )
+
+
+def list_workers_for_rate_admin(db: Session) -> tuple[Trabajador, ...]:
+    return tuple(
+        db.scalars(
+            select(Trabajador).order_by(
+                Trabajador.apellidos,
+                Trabajador.nombres,
+                Trabajador.id,
+            )
+        ).all()
+    )
+
+
 def _exact_positive_clp(value: int | Decimal) -> Decimal:
     if isinstance(value, bool):
         raise AttendanceRateError("La tarifa debe ser un monto CLP entero positivo.")
@@ -27,7 +76,12 @@ def _exact_positive_clp(value: int | Decimal) -> Decimal:
         raise AttendanceRateError(
             "La tarifa debe ser un monto CLP entero positivo."
         ) from exc
-    if amount <= 0 or amount != amount.to_integral_value() or amount > 999_999_999_999:
+    if (
+        not amount.is_finite()
+        or amount <= 0
+        or amount != amount.to_integral_value()
+        or amount > 999_999_999_999
+    ):
         raise AttendanceRateError("La tarifa debe ser un monto CLP entero positivo.")
     return amount
 
@@ -70,7 +124,7 @@ def create_rate_version(
     except IntegrityError as exc:
         db.rollback()
         scope = "global" if worker_id is None else "del trabajador"
-        raise AttendanceRateError(
+        raise AttendanceRateConflict(
             f"Ya existe una tarifa {scope} con esa fecha de vigencia."
         ) from exc
     except Exception:

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Literal
 
@@ -98,6 +98,19 @@ class IncidentDecisionForm(BaseModel):
             return None
         normalized = value.strip()
         return normalized or None
+
+
+class AttendanceRateForm(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    vigente_desde: date
+    monto_clp: Decimal
+    confirmacion: Literal["SI"]
+
+    @field_validator("confirmacion", mode="before")
+    @classmethod
+    def normalize_confirmation(cls, value: object) -> object:
+        return value.strip().upper() if isinstance(value, str) else value
 
 
 class PlaceData(BaseModel):

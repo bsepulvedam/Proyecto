@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Tarifas de asistencia | BOLIKLOR{% endblock %}
+{% block body %}
+{% include "partials/sidebar.html" %}
+<div class="main-wrapper">
+  {% include "partials/topbar.html" %}
+  <main class="content">
+    <section class="history-heading">
+      <div><p class="section-kicker">Asistencia · Solo ADMIN</p><h2>Tarifa global provisional</h2><p>Las nuevas vigencias se agregan al historial; ninguna versión anterior se edita o elimina.</p></div>
+    </section>
+
+    {% if notification %}<div class="alert alert-success" role="status">{{ notification }}</div>{% endif %}
+    {% if error %}<div class="alert alert-danger" role="alert">{{ error }}</div>{% endif %}
+
+    <section class="form-card">
+      <div class="form-card-header"><span class="section-icon"><i class="bi bi-currency-dollar"></i></span><h2>Nueva versión global</h2></div>
+      <form method="post" action="{{ url_for('admin_attendance_rate_global_create') }}">
+        <input type="hidden" name="csrf_token" value="{{ request.cookies.get('boliklor_csrf', '') }}">
+        <div class="row g-3">
+          <div class="col-12 col-md-4"><label class="field-label" for="global-monto">Monto CLP</label><input class="form-control" id="global-monto" name="monto_clp" type="number" min="1" step="1" value="{{ form_values.get('monto_clp', '') }}" required></div>
+          <div class="col-12 col-md-4"><label class="field-label" for="global-vigencia">Vigente desde</label><input class="form-control" id="global-vigencia" name="vigente_desde" type="date" value="{{ form_values.get('vigente_desde', '') }}" required></div>
+          <div class="col-12 col-md-4 d-flex align-items-end"><div class="form-check mb-2"><input class="form-check-input" id="global-confirmacion" name="confirmacion" type="checkbox" value="SI" required><label class="form-check-label" for="global-confirmacion">Confirmo la nueva versión global</label></div></div>
+        </div>
+        <p class="calendar-policy-note">Confirma la nueva tarifa global y su fecha; esta operación es append-only.</p>
+        <button class="btn btn-brand" type="submit">Crear nueva tarifa global</button>
+      </form>
+    </section>
+
+    <section class="data-card">
+      <div class="data-card-header"><div><span class="section-icon"><i class="bi bi-clock-history"></i></span><div><h2>Historial global</h2><p>Versiones ordenadas desde la vigencia más reciente.</p></div></div></div>
+      <div class="table-responsive"><table class="table mb-0"><thead><tr><th>Monto CLP</th><th>Vigente desde</th><th>Origen / actor</th><th>Creada</th></tr></thead><tbody>
+        {% for rate in history %}<tr><td><strong>{{ rate.valor_clp|clp }}</strong></td><td>{{ rate.vigente_desde.strftime('%d/%m/%Y') }}</td><td>{{ rate.origen }}{% if rate.creado_por %} · {{ rate.creado_por.username }}{% endif %}</td><td>{{ rate.created_at|local_datetime }}</td></tr>{% else %}<tr><td colspan="4"><div class="empty-state"><h3>Sin tarifa global</h3><p>Crea la primera versión para habilitar totales desde su vigencia.</p></div></td></tr>{% endfor %}
+      </tbody></table></div>
+    </section>
+
+    <section class="data-card">
+      <div class="data-card-header"><div><span class="section-icon"><i class="bi bi-person-lines-fill"></i></span><div><h2>Tarifas individuales</h2><p>Un override individual vigente prevalece sobre la tarifa global.</p></div></div></div>
+      <div class="table-responsive"><table class="table mb-0"><thead><tr><th>Trabajador</th><th>Código</th><th>Estado</th><th>Acción</th></tr></thead><tbody>
+        {% for worker in workers %}<tr><td>{{ worker.nombres }} {{ worker.apellidos }}</td><td>{{ worker.codigo_interno or 'Sin código' }}</td><td>{{ 'ACTIVO' if worker.activo else 'INACTIVO' }}</td><td><a class="btn btn-sm btn-outline-dark" href="{{ url_for('admin_attendance_rate_worker', worker_id=worker.id) }}">Ver tarifa</a></td></tr>{% else %}<tr><td colspan="4">No hay trabajadores registrados.</td></tr>{% endfor %}
+      </tbody></table></div>
+    </section>
+  </main>
+</div>
+{% endblock %}

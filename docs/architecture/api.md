@@ -13,6 +13,8 @@
 | GET/POST `/mi-asistencia/...` | asistencia | formularios/HTML/archivo | trabajador activo |
 | GET/POST `/mi-asistencia/registrar` | asistencia | estado/HTML y marcaje GPS puntual | `ASISTENCIA_PROPIA`, TRABAJADOR activo y CSRF |
 | GET/POST `/asistencia/supervision...` | asistencia | portal HTML, filtros, detalle y acciones auditadas | `ASISTENCIA_SUPERVISAR`; CSRF en POST |
+| GET `/asistencia/supervision/exportar`, `/asistencia/supervision/trabajadores/{worker_id}/exportar` | asistencia | XLSX conjunto/individual con la proyección del portal | `ASISTENCIA_SUPERVISAR` |
+| GET/POST `/admin/asistencia/tarifas...` | asistencia | historial y nuevas versiones globales/individuales | `ADMIN_ACCESS`; CSRF en POST |
 | GET/POST `/productos...`, `/inventario...` | inventario | HTML | `INVENTARIO_ACCESS` |
 | GET/POST `/ordenes-trabajo...` | OT | HTML | `OT_ACCESS` |
 

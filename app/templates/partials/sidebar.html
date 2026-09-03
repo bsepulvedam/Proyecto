@@ -37,12 +37,13 @@
           <a class="sidebar-sublink{% if active_page == 'work_orders_new' %} active{% endif %}" href="{{ url_for('new_work_order') }}">Nueva OT</a>
           <a class="sidebar-sublink{% if active_page in ['work_orders_history', 'work_orders_detail'] %} active{% endif %}" href="{{ url_for('history_work_orders') }}">Historial OT</a>
         </div>
-        <a class="sidebar-link{% if active_page in ['admin_workers','admin_users','admin_places','admin_assignments'] %} active{% endif %}" href="{{ url_for('admin_workers') }}"><i class="bi bi-shield-lock"></i><span>Administración</span></a>
+        <a class="sidebar-link{% if active_page in ['admin_workers','admin_users','admin_places','admin_assignments','admin_attendance_rates'] %} active{% endif %}" href="{{ url_for('admin_workers') }}"><i class="bi bi-shield-lock"></i><span>Administración</span></a>
         <div class="sidebar-subnav" aria-label="Administración">
           <a class="sidebar-sublink{% if active_page == 'admin_workers' %} active{% endif %}" href="{{ url_for('admin_workers') }}">Trabajadores</a>
           <a class="sidebar-sublink{% if active_page == 'admin_users' %} active{% endif %}" href="{{ url_for('admin_users') }}">Usuarios</a>
           <a class="sidebar-sublink{% if active_page == 'admin_places' %} active{% endif %}" href="{{ url_for('admin_places') }}">Lugares</a>
           <a class="sidebar-sublink{% if active_page == 'admin_assignments' %} active{% endif %}" href="{{ url_for('admin_assignments') }}">Asignaciones</a>
+          <a class="sidebar-sublink{% if active_page == 'admin_attendance_rates' %} active{% endif %}" href="{{ url_for('admin_attendance_rates') }}">Tarifas asistencia</a>
         </div>
       {% endif %}
     {% endif %}

@@ -8,4 +8,4 @@
 
 [IMPLEMENTADO 4B-2A] el calendario usa exclusivamente el `worker.id` resuelto en backend y no admite otro trabajador por query/formulario. El detalle personal omite coordenadas exactas. [PENDIENTE 4B-3] ADMIN/JEFATURA podrán seleccionar trabajadores sólo en rutas de supervisión con permisos explícitos.
 
-[IMPLEMENTADO EN ÁRBOL 4B-3C] ADMIN y JEFATURA supervisan, resuelven incidencias y completan SALIDAS mediante `ASISTENCIA_SUPERVISAR`; todas las mutaciones conservan CSRF y auditoría. TRABAJADOR y anónimo permanecen denegados. Solo ADMIN podrá modificar tarifas en una subfase posterior, sin ampliar `ADMIN_ACCESS`; JEFATURA solo consulta la tarifa efectiva proyectada.
+[IMPLEMENTADO 4B-3C/3D] ADMIN y JEFATURA supervisan, exportan XLSX, resuelven incidencias y completan SALIDAS mediante `ASISTENCIA_SUPERVISAR`; todas las mutaciones conservan CSRF y auditoría. TRABAJADOR y anónimo permanecen denegados. [IMPLEMENTADO EN ÁRBOL 4B-3D] Solo ADMIN consulta historiales y crea versiones de tarifa bajo `ADMIN_ACCESS`; JEFATURA únicamente consulta la tarifa efectiva y el total proyectados en Supervisión.

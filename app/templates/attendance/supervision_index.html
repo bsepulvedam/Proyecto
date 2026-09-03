@@ -11,6 +11,7 @@
         <h2>Supervisión de trabajadores</h2>
         <p>Resumen derivado de sesiones, incidencias y tarifas vigentes por fecha operacional.</p>
       </div>
+      <a class="btn btn-outline-dark" href="{{ url_for('attendance_supervision_export') }}?fecha_desde={{ listing.period.start.isoformat() }}&amp;fecha_hasta={{ listing.period.end.isoformat() }}{% if listing.query %}&amp;q={{ listing.query|urlencode }}{% endif %}"><i class="bi bi-file-earmark-excel me-2"></i>Exportar Excel</a>
     </section>
 
     <section class="form-card">
@@ -21,7 +22,7 @@
         <button class="btn btn-brand" type="submit">Aplicar filtros</button>
       </form>
       {% if error %}<div class="alert alert-danger mt-3 mb-0" role="alert">{{ error }}</div>{% endif %}
-      <p class="calendar-policy-note">Período inclusivo, con un máximo de 366 días.</p>
+      <p class="calendar-policy-note">Período inclusivo, con un máximo de 366 días. La exportación respeta estas fechas y la búsqueda.</p>
     </section>
 
     <section class="data-card">

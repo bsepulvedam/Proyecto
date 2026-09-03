@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
+from typing import Iterator
 
 from sqlalchemy import exists, func, or_, select
 from sqlalchemy.orm import Session, joinedload, selectinload
@@ -183,6 +184,62 @@ def _period_projection(
     )
 
 
+def _worker_conditions(period: SupervisionPeriod, query: str):
+    activity = exists(
+        select(SesionTrabajo.id).where(
+            SesionTrabajo.trabajador_id == Trabajador.id,
+            SesionTrabajo.fecha_operacional >= period.start,
+            SesionTrabajo.fecha_operacional <= period.end,
+        )
+    )
+    conditions = [or_(Trabajador.activo.is_(True), activity)]
+    if query:
+        escaped_query = (
+            query.casefold()
+            .replace("\\", "\\\\")
+            .replace("%", "\\%")
+            .replace("_", "\\_")
+        )
+        pattern = f"%{escaped_query}%"
+        conditions.append(
+            or_(
+                func.lower(Trabajador.nombres).like(pattern, escape="\\"),
+                func.lower(Trabajador.apellidos).like(pattern, escape="\\"),
+                func.lower(func.coalesce(Trabajador.codigo_interno, "")).like(
+                    pattern, escape="\\"
+                ),
+                func.lower(Trabajador.nombres + " " + Trabajador.apellidos).like(
+                    pattern, escape="\\"
+                ),
+            )
+        )
+    return conditions
+
+
+def _summaries_for_workers(
+    db: Session,
+    workers: tuple[Trabajador, ...],
+    period: SupervisionPeriod,
+) -> tuple[WorkerSupervisionSummary, ...]:
+    worker_ids = tuple(worker.id for worker in workers)
+    sessions = _load_sessions(db, worker_ids, period)
+    rates = rate_versions_for_workers(db, worker_ids, through_date=period.end)
+    sessions_by_worker: dict[int, list[SesionTrabajo]] = {}
+    for session in sessions:
+        sessions_by_worker.setdefault(session.trabajador_id, []).append(session)
+    return tuple(
+        WorkerSupervisionSummary(
+            worker=worker,
+            projection=_period_projection(
+                worker.id,
+                tuple(sessions_by_worker.get(worker.id, [])),
+                rates,
+            ),
+        )
+        for worker in workers
+    )
+
+
 def _mark(
     mark: MarcajeAsistencia,
     administrative_exit_mark_id: int | None,
@@ -285,34 +342,7 @@ def list_worker_supervision(
     if isinstance(page, bool) or page < 1:
         raise AttendanceSupervisionError("La página solicitada no es válida.")
     normalized_query = _normalized_query(query)
-    activity = exists(
-        select(SesionTrabajo.id).where(
-            SesionTrabajo.trabajador_id == Trabajador.id,
-            SesionTrabajo.fecha_operacional >= period.start,
-            SesionTrabajo.fecha_operacional <= period.end,
-        )
-    )
-    conditions = [or_(Trabajador.activo.is_(True), activity)]
-    if normalized_query:
-        escaped_query = (
-            normalized_query.casefold()
-            .replace("\\", "\\\\")
-            .replace("%", "\\%")
-            .replace("_", "\\_")
-        )
-        pattern = f"%{escaped_query}%"
-        conditions.append(
-            or_(
-                func.lower(Trabajador.nombres).like(pattern, escape="\\"),
-                func.lower(Trabajador.apellidos).like(pattern, escape="\\"),
-                func.lower(func.coalesce(Trabajador.codigo_interno, "")).like(
-                    pattern, escape="\\"
-                ),
-                func.lower(Trabajador.nombres + " " + Trabajador.apellidos).like(
-                    pattern, escape="\\"
-                ),
-            )
-        )
+    conditions = _worker_conditions(period, normalized_query)
     total_workers = db.scalar(
         select(func.count(Trabajador.id)).where(*conditions)
     ) or 0
@@ -325,23 +355,7 @@ def list_worker_supervision(
             .offset((page - 1) * PAGE_SIZE)
         ).all()
     )
-    worker_ids = tuple(worker.id for worker in workers)
-    sessions = _load_sessions(db, worker_ids, period)
-    rates = rate_versions_for_workers(db, worker_ids, through_date=period.end)
-    sessions_by_worker: dict[int, list[SesionTrabajo]] = {}
-    for session in sessions:
-        sessions_by_worker.setdefault(session.trabajador_id, []).append(session)
-    summaries = tuple(
-        WorkerSupervisionSummary(
-            worker=worker,
-            projection=_period_projection(
-                worker.id,
-                tuple(sessions_by_worker.get(worker.id, [])),
-                rates,
-            ),
-        )
-        for worker in workers
-    )
+    summaries = _summaries_for_workers(db, workers, period)
     return SupervisionListing(
         period=period,
         query=normalized_query,
@@ -350,6 +364,35 @@ def list_worker_supervision(
         total_workers=total_workers,
         workers=summaries,
     )
+
+
+def iter_worker_supervision_summaries(
+    db: Session,
+    period: SupervisionPeriod,
+    *,
+    query: str | None = None,
+    batch_size: int = 200,
+) -> Iterator[WorkerSupervisionSummary]:
+    """Project all filtered Workers in bounded batches for XLSX generation."""
+    if isinstance(batch_size, bool) or not isinstance(batch_size, int) or batch_size <= 0:
+        raise AttendanceSupervisionError("El tamaño de lote no es válido.")
+    normalized_query = _normalized_query(query)
+    conditions = _worker_conditions(period, normalized_query)
+    offset = 0
+    while True:
+        workers = tuple(
+            db.scalars(
+                select(Trabajador)
+                .where(*conditions)
+                .order_by(Trabajador.apellidos, Trabajador.nombres, Trabajador.id)
+                .limit(batch_size)
+                .offset(offset)
+            ).all()
+        )
+        if not workers:
+            return
+        yield from _summaries_for_workers(db, workers, period)
+        offset += len(workers)
 
 
 def get_worker_supervision(

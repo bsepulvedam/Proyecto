@@ -14,7 +14,7 @@
 - [CONFIRMADO] una falta de marcaje queda `PENDIENTE_DE_REVISION` antes de una ausencia definitiva. Sin una fuente válida de planificación no se infiere ausencia.
 - [CONFIRMADO] la tolerancia de atraso es inicialmente 10 minutos y será configurable globalmente; solo se calcula cuando exista una hora esperada válida.
 - [CONFIRMADO] colores futuros: verde correcto, rojo ausencia confirmada, amarillo atraso/incidencia, naranja fuera de rango, gris no laboral y neutral futuro/sin estado.
-- [CONFIRMADO] una exportación mensual futura contemplará Excel y PDF. No se calculan remuneraciones; la futura integración podrá consumir `VALOR_DIA`/`TOTAL_PAGO` sin convertir Asistencia en dueña de remuneraciones.
+- [IMPLEMENTADO EN ÁRBOL 4B-3D] las exportaciones XLSX conjunta e individual reproducen días trabajados, jornadas pagables, dobles turnos, incidencias, tarifa y total de la proyección de supervisión. No recalculan reglas, no incluyen GPS y muestran explícitamente `Sin tarifa configurada` cuando corresponde. PDF permanece fuera de esta fase.
 - [IMPLEMENTADO 4B-1] eventos y evidencia original no se sobrescriben; existe estructura para correcciones auditadas y evaluación reproducible/versionada.
 - [IMPLEMENTADO 4B-2] endpoint/UI personal con ownership desde sesión, CSRF, turno activo solo en ENTRADA, sesión abierta automática en SALIDA y GPS solicitado bajo demanda.
 - [IMPLEMENTADO 4B-2A] una fecha se clasifica como trabajada si contiene al menos una sesión cerrada con entrada y salida válidas. Múltiples sesiones conservan detalle pero no multiplican la fecha trabajada ni generan pagos.

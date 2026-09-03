@@ -4,6 +4,9 @@ import unittest
 from datetime import date, datetime, time, timezone
 from decimal import Decimal
 from html import unescape
+from io import BytesIO
+
+from openpyxl import load_workbook
 
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
@@ -355,6 +358,164 @@ class AttendanceSupervisionTests(unittest.TestCase):
         csrf = client.cookies["boliklor_csrf"]
         self.assertEqual(client.post("/asistencia/supervision/sesiones/999999/completar-salida", {"csrf_token": csrf, "salida_at": "2026-09-02T18:00", "motivo": "x"}).status_code, 404)
         self.assertEqual(client.post("/asistencia/supervision/incidencias/999999/decision", {"csrf_token": csrf, "decision": "APROBADA"}).status_code, 404)
+
+    def test_combined_excel_is_valid_filtered_safe_private_and_matches_projection(self):
+        with self.Session() as db:
+            company = db.scalar(select(Empresa))
+            db.add_all(
+                [
+                    Trabajador(
+                        empresa_id=company.id,
+                        codigo_interno="@FORMULA",
+                        nombres="=SUM(1,1)",
+                        apellidos="Especial Ñ",
+                    ),
+                    *(
+                        Trabajador(
+                            empresa_id=company.id,
+                            codigo_interno=f"LOTE-{index:02d}",
+                            nombres="Carga",
+                            apellidos=f"Zeta {index:02d}",
+                        )
+                        for index in range(27)
+                    ),
+                ]
+            )
+            db.commit()
+
+        client = self.client_for("jefatura")
+        path = "/asistencia/supervision/exportar?fecha_desde=2026-09-01&fecha_hasta=2026-09-30"
+        response = client.get(path)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.headers["content-type"],
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+        self.assertRegex(
+            response.headers["content-disposition"],
+            r'^attachment; filename="asistencia_2026-09-01_2026-09-30\.xlsx"$',
+        )
+        workbook = load_workbook(BytesIO(response.body), read_only=True, data_only=False)
+        sheet = workbook["Resumen"]
+        rows = list(sheet.iter_rows(values_only=True))
+        self.assertEqual(
+            rows[0],
+            (
+                "Trabajador",
+                "Código",
+                "Días trabajados",
+                "Jornadas pagables",
+                "Dobles turnos",
+                "Incidencias",
+                "Total provisional",
+            ),
+        )
+        self.assertEqual(len(rows) - 1, 31)
+        by_code = {row[1]: row for row in rows[1:]}
+        ana_row = by_code["SUP-001"]
+        with self.Session() as db:
+            listing = list_worker_supervision(
+                db, supervision_period("2026-09-01", "2026-09-30")
+            )
+            ana = next(
+                item.projection
+                for item in listing.workers
+                if item.worker.codigo_interno == "SUP-001"
+            )
+        self.assertEqual(
+            ana_row[2:],
+            (
+                ana.completed_worked_days,
+                ana.payable_shifts,
+                ana.double_shift_days,
+                ana.incident_count,
+                ana.provisional_total_clp,
+            ),
+        )
+        formula_row = next(row for row in rows if row[1] == "'@FORMULA")
+        self.assertEqual(formula_row[0], "'=SUM(1,1) Especial Ñ")
+        serialized = " ".join(str(value) for row in rows for value in row if value is not None).casefold()
+        self.assertNotIn("latitud", serialized)
+        self.assertNotIn("longitud", serialized)
+        self.assertNotIn("-33.2", serialized)
+        self.assertNotIn("-70.6", serialized)
+
+        filtered = client.get(f"{path}&q=SUP-002")
+        filtered_rows = list(
+            load_workbook(BytesIO(filtered.body), read_only=True)["Resumen"].iter_rows(
+                values_only=True
+            )
+        )
+        self.assertEqual(len(filtered_rows), 2)
+        self.assertEqual(filtered_rows[1][1], "SUP-002")
+
+    def test_individual_excel_has_summary_daily_detail_and_domain_semantics(self):
+        path = (
+            f"/asistencia/supervision/trabajadores/{self.worker_ids['ana']}/exportar"
+            "?fecha_desde=2026-09-01&fecha_hasta=2026-09-30"
+        )
+        response = self.client_for("admin").get(path)
+        self.assertEqual(response.status_code, 200)
+        workbook = load_workbook(BytesIO(response.body), read_only=True, data_only=False)
+        self.assertEqual(workbook.sheetnames, ["Resumen", "Detalle diario"])
+        summary = dict(workbook["Resumen"].iter_rows(values_only=True))
+        self.assertEqual(
+            summary["Trabajador"],
+            f"{self.workers['ana'].nombres} {self.workers['ana'].apellidos}",
+        )
+        self.assertEqual(summary["Período"], "2026-09-01 al 2026-09-30")
+        self.assertEqual(
+            tuple(summary[key] for key in ("Días trabajados", "Jornadas pagables", "Dobles turnos", "Incidencias", "Total provisional")),
+            (1, 3, 1, 2, 90000),
+        )
+        detail_rows = list(workbook["Detalle diario"].iter_rows(values_only=True))
+        headers = detail_rows[0]
+        by_day = {row[0].date(): dict(zip(headers, row)) for row in detail_rows[1:]}
+        incomplete = by_day[date(2026, 9, 2)]
+        self.assertIn("INCOMPLETA", incomplete["Estado"])
+        self.assertEqual(incomplete["Jornada pagable"], 1)
+        self.assertEqual(incomplete["Incidencias"], 1)
+        double = by_day[date(2026, 9, 3)]
+        self.assertEqual(double["Turno"], "DIURNO + NOCTURNO")
+        self.assertEqual(double["Jornada pagable"], 2)
+        self.assertEqual(double["Tarifa efectiva"], 30000)
+        self.assertEqual(double["Origen tarifa"], "GLOBAL")
+        self.assertEqual(double["Total provisional"], 60000)
+        self.assertIn("NOCTURNO: 04/09/2026 05:00", double["Salida"])
+
+        early = self.client_for("jefatura").get(
+            f"/asistencia/supervision/trabajadores/{self.worker_ids['ana']}/exportar"
+            "?fecha_desde=2026-08-31&fecha_hasta=2026-08-31"
+        )
+        early_book = load_workbook(BytesIO(early.body), read_only=True)
+        early_summary = dict(early_book["Resumen"].iter_rows(values_only=True))
+        early_detail = list(early_book["Detalle diario"].iter_rows(values_only=True))
+        self.assertEqual(early_summary["Total provisional"], "Sin tarifa configurada")
+        self.assertEqual(early_detail[1][6], "Sin tarifa configurada")
+        self.assertEqual(early_detail[1][8], "Sin tarifa configurada")
+
+    def test_excel_routes_enforce_supervision_permission(self):
+        paths = (
+            "/asistencia/supervision/exportar?fecha_desde=2026-09-01&fecha_hasta=2026-09-30",
+            f"/asistencia/supervision/trabajadores/{self.worker_ids['ana']}/exportar?fecha_desde=2026-09-01&fecha_hasta=2026-09-30",
+        )
+        for path in paths:
+            self.assertEqual(ASGIClient().get(path).status_code, 303)
+            self.assertEqual(self.client_for("worker").get(path).status_code, 403)
+            self.assertEqual(self.client_for("admin").get(path).status_code, 200)
+            self.assertEqual(self.client_for("jefatura").get(path).status_code, 200)
+        self.assertEqual(
+            self.client_for("admin").get(
+                "/asistencia/supervision/exportar?fecha_desde=2026-09-30&fecha_hasta=2026-09-01"
+            ).status_code,
+            422,
+        )
+        self.assertEqual(
+            self.client_for("admin").get(
+                "/asistencia/supervision/trabajadores/999999/exportar?fecha_desde=2026-09-01&fecha_hasta=2026-09-30"
+            ).status_code,
+            404,
+        )
 
 
 if __name__ == "__main__":

@@ -7,7 +7,7 @@
   <main class="content">
     <section class="history-heading">
       <div><p class="section-kicker">Supervisión individual</p><h2>{{ supervision.worker.nombres }} {{ supervision.worker.apellidos }}</h2><p>{{ supervision.worker.codigo_interno or 'Sin código interno' }} · {{ supervision.period.start.strftime('%d/%m/%Y') }} al {{ supervision.period.end.strftime('%d/%m/%Y') }}</p>{% if not supervision.worker.activo %}<span class="badge-status badge-status--neutral">TRABAJADOR INACTIVO</span>{% endif %}</div>
-      <a class="btn btn-outline-dark" href="{{ url_for('attendance_supervision') }}?fecha_desde={{ supervision.period.start.isoformat() }}&amp;fecha_hasta={{ supervision.period.end.isoformat() }}">Volver al listado</a>
+      <div class="d-flex flex-wrap gap-2"><a class="btn btn-outline-dark" href="{{ url_for('attendance_supervision_worker_export', worker_id=supervision.worker.id) }}?fecha_desde={{ supervision.period.start.isoformat() }}&amp;fecha_hasta={{ supervision.period.end.isoformat() }}"><i class="bi bi-file-earmark-excel me-2"></i>Exportar Excel</a><a class="btn btn-outline-dark" href="{{ url_for('attendance_supervision') }}?fecha_desde={{ supervision.period.start.isoformat() }}&amp;fecha_hasta={{ supervision.period.end.isoformat() }}">Volver al listado</a></div>
     </section>
 
     <section class="row g-3 kpi-grid" aria-label="Resumen del período">

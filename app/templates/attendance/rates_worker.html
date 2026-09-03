@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Tarifa individual | BOLIKLOR{% endblock %}
+{% block body %}
+{% include "partials/sidebar.html" %}
+<div class="main-wrapper">
+  {% include "partials/topbar.html" %}
+  <main class="content">
+    <section class="history-heading">
+      <div><p class="section-kicker">Tarifa individual · Solo ADMIN</p><h2>{{ worker.nombres }} {{ worker.apellidos }}</h2><p>{{ worker.codigo_interno or 'Sin código interno' }}</p></div>
+      <a class="btn btn-outline-dark" href="{{ url_for('admin_attendance_rates') }}">Volver a tarifas</a>
+    </section>
+
+    {% if notification %}<div class="alert alert-success" role="status">{{ notification }}</div>{% endif %}
+    {% if error %}<div class="alert alert-danger" role="alert">{{ error }}</div>{% endif %}
+
+    <section class="form-card">
+      <div class="form-card-header"><span class="section-icon"><i class="bi bi-person-badge"></i></span><div><h2>Tarifa efectiva al {{ today.strftime('%d/%m/%Y') }}</h2><p class="mb-0">{% if effective_rate %}{{ effective_rate.amount_clp|clp }} · {{ effective_rate.source }}{% else %}Sin tarifa configurada{% endif %}</p></div></div>
+      <form method="post" action="{{ url_for('admin_attendance_rate_worker_create', worker_id=worker.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ request.cookies.get('boliklor_csrf', '') }}">
+        <div class="row g-3">
+          <div class="col-12 col-md-4"><label class="field-label" for="worker-monto">Monto CLP</label><input class="form-control" id="worker-monto" name="monto_clp" type="number" min="1" step="1" value="{{ form_values.get('monto_clp', '') }}" required></div>
+          <div class="col-12 col-md-4"><label class="field-label" for="worker-vigencia">Vigente desde</label><input class="form-control" id="worker-vigencia" name="vigente_desde" type="date" value="{{ form_values.get('vigente_desde', '') }}" required></div>
+          <div class="col-12 col-md-4 d-flex align-items-end"><div class="form-check mb-2"><input class="form-check-input" id="worker-confirmacion" name="confirmacion" type="checkbox" value="SI" required><label class="form-check-label" for="worker-confirmacion">Confirmo la nueva tarifa individual para {{ worker.nombres }} {{ worker.apellidos }}</label></div></div>
+        </div>
+        <p class="calendar-policy-note">No se copia la tarifa global: esta acción crea un override individual versionado.</p>
+        <button class="btn btn-brand" type="submit">Crear nueva tarifa individual</button>
+      </form>
+    </section>
+
+    <section class="data-card">
+      <div class="data-card-header"><div><span class="section-icon"><i class="bi bi-clock-history"></i></span><div><h2>Historial individual</h2><p>Solo overrides creados expresamente para este trabajador.</p></div></div></div>
+      <div class="table-responsive"><table class="table mb-0"><thead><tr><th>Monto CLP</th><th>Vigente desde</th><th>Origen / actor</th><th>Creada</th></tr></thead><tbody>
+        {% for rate in history %}<tr><td><strong>{{ rate.valor_clp|clp }}</strong></td><td>{{ rate.vigente_desde.strftime('%d/%m/%Y') }}</td><td>{{ rate.origen }}{% if rate.creado_por %} · {{ rate.creado_por.username }}{% endif %}</td><td>{{ rate.created_at|local_datetime }}</td></tr>{% else %}<tr><td colspan="4"><div class="empty-state"><h3>Sin override individual</h3><p>Se usa la tarifa global vigente; no se ha copiado como versión individual.</p></div></td></tr>{% endfor %}
+      </tbody></table></div>
+    </section>
+  </main>
+</div>
+{% endblock %}

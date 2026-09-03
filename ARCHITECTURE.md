@@ -27,7 +27,7 @@ flowchart LR
 
 [IMPLEMENTADO EN ÁRBOL 4B-3A] `attendance_rules_service.py` define la proyección común e inmutable de sesión, día y período. Recibe turno/fecha operacional y marcajes como hechos; deriva actividad, incompleto, situación horaria, jornadas pagables, doble turno, tarifa efectiva versionada y total provisional. El calendario personal reutiliza su proyección de sesión.
 
-[IMPLEMENTADO EN ÁRBOL 4B-3B] `attendance_admin_service.py` crea una SALIDA y su intervención auditable en una transacción con bloqueo de fila, y registra decisiones finales de incidencias sin modificar evidencia. `attendance_rate_service.py` persiste versiones globales/individuales append-only y adapta sus filas al mismo resolvedor de tarifa de 4B-3A. El portal, las rutas administrativas y Excel permanecen para subfases posteriores.
+[IMPLEMENTADO EN ÁRBOL 4B-3B/3D] `attendance_admin_service.py` crea una SALIDA y su intervención auditable en una transacción con bloqueo de fila, y registra decisiones finales de incidencias sin modificar evidencia. `attendance_rate_service.py` persiste y consulta versiones globales/individuales append-only, adaptadas al mismo resolvedor de tarifa de 4B-3A. [IMPLEMENTADO EN ÁRBOL 4B-3D] `attendance_export_service.py` serializa a XLSX la proyección compartida de supervisión, neutraliza fórmulas y omite GPS; la exportación conjunta procesa Workers en lotes y escritura `write_only`.
 
 ## Módulos y relaciones
 

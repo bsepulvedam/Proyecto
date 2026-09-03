@@ -3,7 +3,7 @@ from pathlib import Path
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, Request, status
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
@@ -17,6 +17,13 @@ from app.services.attendance_admin_service import (
     AttendanceAdministrationError,
     complete_administrative_exit,
     decide_attendance_incident,
+)
+from app.services.attendance_export_service import (
+    XLSX_MEDIA_TYPE,
+    build_combined_attendance_xlsx,
+    combined_export_filename,
+    export_worker_attendance,
+    individual_export_filename,
 )
 from app.services.attendance_supervision_service import (
     AttendanceSupervisionError,
@@ -162,6 +169,51 @@ def supervision_worker(
             calendar_dates=period_dates(period),
             page_title="Asistencia individual",
         ),
+    )
+
+
+@router.get("/exportar", name="attendance_supervision_export")
+def supervision_export(
+    fecha_desde: str | None = None,
+    fecha_hasta: str | None = None,
+    q: str | None = None,
+    db: Session = Depends(get_db),
+):
+    try:
+        period = supervision_period(fecha_desde, fecha_hasta)
+        content = build_combined_attendance_xlsx(db, period, query=q)
+    except AttendanceSupervisionError as exc:
+        return HTMLResponse(str(exc), status_code=status.HTTP_422_UNPROCESSABLE_CONTENT)
+    filename = combined_export_filename(period)
+    return Response(
+        content=content,
+        media_type=XLSX_MEDIA_TYPE,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get(
+    "/trabajadores/{worker_id}/exportar",
+    name="attendance_supervision_worker_export",
+)
+def supervision_worker_export(
+    worker_id: int,
+    fecha_desde: str | None = None,
+    fecha_hasta: str | None = None,
+    db: Session = Depends(get_db),
+):
+    try:
+        period = supervision_period(fecha_desde, fecha_hasta)
+    except AttendanceSupervisionError as exc:
+        return HTMLResponse(str(exc), status_code=status.HTTP_422_UNPROCESSABLE_CONTENT)
+    content = export_worker_attendance(db, worker_id, period)
+    if content is None:
+        return HTMLResponse("Trabajador no encontrado", status_code=404)
+    filename = individual_export_filename(worker_id, period)
+    return Response(
+        content=content,
+        media_type=XLSX_MEDIA_TYPE,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
 

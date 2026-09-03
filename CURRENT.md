@@ -7,9 +7,9 @@ Este documento describe el estado verificable del repositorio y el punto exacto 
 - **Proyecto:** Boliklor.
 - **Fecha de actualización:** 2026-09-03 (`America/Santiago`).
 - **Rama:** `main`, con seguimiento de `origin/main`.
-- **Último commit base:** `aea9c32043cbd9dead18c746e3bc9272299d39ad` (`aea9c32`), `Implementar base de supervisión de Asistencia 4B-3A y 4B-3B`.
+- **Último commit base:** `72534f5`, `Implementar portal de supervisión de Asistencia 4B-3C`.
 - **Sincronía conocida:** `HEAD` y la referencia local `origin/main` están 0/0; no se ejecutó `fetch`.
-- **Estado del árbol:** 4B-2B, 4B-3A y 4B-3B están integradas en `aea9c32`, sincronizado con la referencia local `origin/main` al iniciar este gate. Asistencia 4B-3C está implementada y testeada en el árbol, todavía sin commit/push. No se ejecutaron `git add`, commit, push ni deploy durante 4B-3C.
+- **Estado del árbol:** 4B-3A/3B están integradas en `aea9c32` y 4B-3C en `72534f5`. Asistencia 4B-3D está implementada y testeada en el árbol, todavía sin commit/push. No se ejecutaron `git add`, commit, push, deploy ni migración real durante 4B-3D.
 
 ## 2. Estado funcional
 
@@ -19,8 +19,8 @@ Este documento describe el estado verificable del repositorio y el punto exacto 
 - [IMPLEMENTADO, MIGRADO Y VALIDADO 4B-2B] Geocercas `RADIO` y `COMUNA`, administración por ADMIN, detección automática entre todas las zonas activas, tolerancia comunal y persistencia del snapshot geográfico. Gates automatizado, PostgreSQL desechable, manual, backup/restore y migración real aprobados.
 - [IMPLEMENTADO, TESTEADO Y COMMIT 4B-3A] Motor de dominio común para actividad, incompletos, situación horaria, jornadas pagables, doble turno, tarifa efectiva versionada y total provisional. El calendario personal explicita sesiones incompletas.
 - [IMPLEMENTADO, TESTEADO, VALIDADO EN POSTGRESQL DESECHABLE Y COMMIT 4B-3B] Persistencia auditable de SALIDA administrativa, decisiones finales de incidencias, tarifas globales/individuales versionadas y migración candidata `20260902_09`.
-- [IMPLEMENTADO Y TESTEADO EN ÁRBOL 4B-3C] Portal de supervisión ADMIN/JEFATURA bajo `/asistencia/supervision`, búsqueda/filtros, resumen paginado, calendario individual, detalle diario y acciones web auditadas para completar SALIDA y decidir incidencias.
-- [PENDIENTE 4B-3D+] Exportación individual/conjunta a Excel y administración web de tarifas exclusivamente ADMIN.
+- [IMPLEMENTADO, TESTEADO, VALIDADO MANUALMENTE Y COMMIT 4B-3C] Portal de supervisión ADMIN/JEFATURA bajo `/asistencia/supervision`, búsqueda/filtros, resumen paginado, calendario individual, detalle diario y acciones web auditadas para completar SALIDA y decidir incidencias.
+- [IMPLEMENTADO Y TESTEADO EN ÁRBOL 4B-3D] Administración web append-only de tarifas exclusivamente ADMIN y exportación XLSX conjunta/individual para ADMIN/JEFATURA con filtros, paridad de proyección, neutralización de fórmulas y omisión de GPS.
 
 ## 3. Asistencia 4B-2B integrada
 
@@ -117,6 +117,11 @@ Comunas aprobadas:
 - 4B-3C regresión completa de Asistencia con `TEST_DATABASE_URL` desechable: 109/109 aprobadas, incluidas 3/3 de locks/concurrencia PostgreSQL sobre `boliklor_ot_test` en `20260902_09`.
 - 4B-3C suite completa aislada con `APP_ENV=test`, `AUTH_ENFORCED=false` y `TEST_DATABASE_URL` desechable: 202/202 aprobadas.
 - 4B-3C `python -m compileall -q app tests alembic`: aprobado; `pip check`: `No broken requirements found`; `git diff --check`: aprobado.
+- 4B-3D focalizada web/servicios: 24/24 aprobadas para tarifas, RBAC, CSRF, versionado, precedencia, conflictos, Excel conjunto/individual, privacidad y paridad.
+- 4B-3D PostgreSQL desechable: `boliklor_ot_test` confirmada en `20260902_09 (head)`; 3/3 pruebas de locks/concurrencia y unicidad de tarifas aprobadas sin usar la base real.
+- 4B-3D regresión completa de Asistencia con `TEST_DATABASE_URL` desechable: 116/116 aprobadas.
+- 4B-3D suite completa aislada con `APP_ENV=test`, `AUTH_ENFORCED=false` y `TEST_DATABASE_URL` desechable: 209/209 aprobadas.
+- 4B-3D `python -m compileall -q app tests alembic`: aprobado; `pip check`: `No broken requirements found`; `git diff --check`: aprobado.
 
 ## 7. Riesgos y pendientes
 
@@ -155,9 +160,9 @@ Comunas aprobadas:
 - [IMPLEMENTADO Y TESTEADO] Incidencias usan `PENDIENTE/APROBADA/RECHAZADA`. `decide_attendance_incident` bloquea, permite una sola decisión final y conserva marcaje, GPS, geocerca, turno, fecha operacional y pagabilidad.
 - [IMPLEMENTADO Y TESTEADO] `TarifaProvisionalAsistencia` conserva monto `Numeric(12,0)` positivo, fecha operacional de vigencia, alcance global/Worker, origen, actor y timestamp. Los índices parciales únicos evitan dos versiones del mismo alcance/fecha; individual prevalece sobre global mediante el motor común 4B-3A.
 - [IMPLEMENTADO EN MIGRACIÓN CANDIDATA] `20260902_09` prechequea estados/coherencia, mapea `RESUELTA→APROBADA` y `DESCARTADA→RECHAZADA`, y siembra global $30.000 desde la primera fecha operacional real verificada (`2026-09-01`). El downgrade traduce estados de vuelta cuando es seguro y aborta ante intervenciones o tarifas posteriores.
-- [PENDIENTE] No existen todavía rutas/UI para estas acciones. RBAC/CSRF se aplicarán en el borde web: ADMIN/JEFATURA para supervisión y sólo ADMIN para mutar tarifas.
+- [IMPLEMENTADO EN 4B-3C/3D] Existen rutas/UI para las acciones de supervisión y tarifas. `ASISTENCIA_SUPERVISAR` autoriza portal/exportaciones y `ADMIN_ACCESS` protege consulta y mutación de tarifas; todos los POST conservan CSRF.
 
-## 11. Asistencia 4B-3C implementada en el árbol
+## 11. Asistencia 4B-3C integrada en `72534f5`
 
 - [IMPLEMENTADO Y TESTEADO] Router separado bajo `/asistencia/supervision`, protegido por `ASISTENCIA_SUPERVISAR`; ADMIN y JEFATURA acceden, TRABAJADOR recibe 403 y el anónimo redirección segura a login.
 - [IMPLEMENTADO Y TESTEADO] El listado usa período inclusivo, búsqueda por nombre/apellido/código, máximo de 366 días y paginación de 25. Incluye Workers activos aunque no tengan actividad e inactivos cuando conservan sesiones en el período.
@@ -168,12 +173,24 @@ Comunas aprobadas:
 - [PRIVACIDAD VALIDADA] Las vistas no incluyen latitud ni longitud exactas; solo lugar, tipo/estado de geocerca y estado de precisión históricos.
 - [SIN CAMBIO DE ESQUEMA] 4B-3C no añade migraciones. El head de código continúa en `20260902_09` y `boliklor_ot` real permanece en `20260901_08`.
 
-## 12. Punto exacto de continuidad
+## 12. Asistencia 4B-3D implementada en el árbol
 
-**Fase activa:** Asistencia 4B-3. Las subfases 4B-3A y 4B-3B están implementadas, testeadas e integradas en el commit `aea9c32`; 4B-3C está implementada y testeada en el árbol sobre esa base.
+- [IMPLEMENTADO Y TESTEADO] `/admin/asistencia/tarifas` muestra historial global, actor/origen y creación; permite al ADMIN crear nuevas vigencias globales sin editar/eliminar versiones previas.
+- [IMPLEMENTADO Y TESTEADO] El detalle de Worker muestra tarifa efectiva `GLOBAL`/`INDIVIDUAL`, historial exclusivo de overrides y permite nuevas versiones individuales. No copia automáticamente la tarifa global.
+- [IMPLEMENTADO Y TESTEADO] Monto entero positivo, fecha, Worker, confirmación, duplicados y campos extra se validan en backend. Los duplicados son 409 controlados; el resto de formularios inválidos es 422. CSRF faltante/inválido es 403.
+- [RBAC VALIDADO] ADMIN consulta/muta tarifas; JEFATURA consulta tarifa/total en Supervisión pero recibe 403 en rutas de tarifa; TRABAJADOR recibe 403 y anónimo redirección a login. Las exportaciones usan `ASISTENCIA_SUPERVISAR` para ADMIN/JEFATURA.
+- [IMPLEMENTADO Y TESTEADO] XLSX conjunto respeta período y búsqueda, incluye todas las filas filtradas en lotes y reproduce días trabajados, jornadas pagables, dobles turnos, incidencias y total de la proyección compartida.
+- [IMPLEMENTADO Y TESTEADO] XLSX individual contiene `Resumen` y `Detalle diario`, incluidos nocturno, incompleto, doble turno, tarifa/origen e incidencias. Una tarifa ausente se expresa como `Sin tarifa configurada` sin fallback ni total inventado.
+- [SEGURIDAD/PRIVACIDAD VALIDADA] Toda cadena se neutraliza ante prefijos de fórmula y caracteres XML de control; los nombres de archivo son constantes/seguros y los libros no contienen latitud, longitud ni coordenadas.
+- [SIN CAMBIO DE ESQUEMA] 4B-3D no añade migraciones. `boliklor_ot_test` permanece en `20260902_09`; `boliklor_ot` real continúa en `20260901_08` y no fue mutada.
+- [PENDIENTE MANUAL] El checklist reproducible para navegador y Excel/LibreOffice está en `docs/operations/attendance-4b3d-manual-validation.md`; no se declara ejecutado en este gate automatizado.
 
-**Estado de cierre:** gate 4B-3C aprobado en pruebas focalizadas y regresión de Asistencia; todavía sin `git add`, commit o push. Las pruebas PostgreSQL desechables de locks/concurrencia 4B-3B continúan verdes sobre `boliklor_ot_test` en `20260902_09`. La base real `boliklor_ot` permanece en `20260901_08` y no recibió ninguna mutación.
+## 13. Punto exacto de continuidad
 
-**Siguiente gate propuesto:** revisión humana del diff y validación manual en navegador de 4B-3C. Después, con autorización expresa, 4B-3D incorporará exportación Excel individual/conjunta y administración web de tarifas solo ADMIN. No se avanzó automáticamente.
+**Fase activa:** Asistencia 4B-3. Las subfases 4B-3A/3B están integradas en `aea9c32` y 4B-3C en `72534f5`; 4B-3D está implementada y testeada en el árbol sobre esa base. No se marca 4B-3 completa.
+
+**Estado de cierre:** gate automatizado 4B-3D aprobado en pruebas focalizadas, PostgreSQL desechable, regresión de Asistencia y suite completa; todavía sin `git add`, commit o push. La validación manual en navegador/Excel está preparada pero pendiente de ejecución. La base real `boliklor_ot` permanece en `20260901_08` y no recibió ninguna mutación.
+
+**Siguiente gate propuesto:** revisión humana del diff y ejecución del checklist manual 4B-3D contra `boliklor_ot_test`. Después, solo con autorización expresa, decidir commit/push y el gate separado de migración real `20260902_09`. No se avanzó automáticamente.
 
 **Prohibiciones vigentes:** no ejecutar nuevas mutaciones de esquema/datos reales fuera de un gate explícito; no incluir backups, fuentes masivas, wheels, secretos, documentos laborales ni coordenadas exactas en Git o logs/UI no autorizada.

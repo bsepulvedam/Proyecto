@@ -11,3 +11,5 @@ La UI operativa usa Jinja2 en `app/templates`, CSS/JS en `app/static` y navegaci
 ## Target and next steps
 
 [PROPUESTO] consolidar patrones Jinja/macros y tokens CSS, documentar el prototipo, aplicar mejora progresiva, foco/labels/contraste y mensajes consistentes. No introducir SPA sin necesidad demostrada.
+
+[IMPLEMENTADO EN ÁRBOL 4B-3D] La UI Jinja añade descargas XLSX en Supervisión y administración de tarifas en la navegación ADMIN. Las nuevas versiones exigen una confirmación explícita en el formulario; JEFATURA no recibe controles de tarifas y las rutas mantienen autorización backend.

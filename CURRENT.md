@@ -7,9 +7,9 @@ Este documento describe el estado verificable del repositorio y el punto exacto 
 - **Proyecto:** Boliklor.
 - **Fecha de actualización:** 2026-09-03 (`America/Santiago`).
 - **Rama:** `main`, con seguimiento de `origin/main`.
-- **Último commit base:** `72534f5`, `Implementar portal de supervisión de Asistencia 4B-3C`.
+- **Último commit base:** `ef468ec`, `Completar tarifas y exportación de Asistencia 4B-3D`.
 - **Sincronía conocida:** `HEAD` y la referencia local `origin/main` están 0/0; no se ejecutó `fetch`.
-- **Estado del árbol:** 4B-3A/3B están integradas en `aea9c32` y 4B-3C en `72534f5`. Asistencia 4B-3D está implementada y testeada en el árbol, todavía sin commit/push. No se ejecutaron `git add`, commit, push, deploy ni migración real durante 4B-3D.
+- **Estado del árbol:** 4B-3A/3B están integradas en `aea9c32`, 4B-3C en `72534f5` y 4B-3D en `ef468ec`. La única modificación local es esta actualización documental posterior a la migración real; no se ejecutaron `git add`, commit, push ni deploy durante el gate.
 
 ## 2. Estado funcional
 
@@ -18,9 +18,9 @@ Este documento describe el estado verificable del repositorio y el punto exacto 
 - [IMPLEMENTADO, INTEGRADO Y VALIDADO MANUALMENTE] Asistencia 4B-2A proyecta sesiones cerradas en el calendario personal, ofrece detalle diario y clasificación visual de revisión/fuera de rango.
 - [IMPLEMENTADO, MIGRADO Y VALIDADO 4B-2B] Geocercas `RADIO` y `COMUNA`, administración por ADMIN, detección automática entre todas las zonas activas, tolerancia comunal y persistencia del snapshot geográfico. Gates automatizado, PostgreSQL desechable, manual, backup/restore y migración real aprobados.
 - [IMPLEMENTADO, TESTEADO Y COMMIT 4B-3A] Motor de dominio común para actividad, incompletos, situación horaria, jornadas pagables, doble turno, tarifa efectiva versionada y total provisional. El calendario personal explicita sesiones incompletas.
-- [IMPLEMENTADO, TESTEADO, VALIDADO EN POSTGRESQL DESECHABLE Y COMMIT 4B-3B] Persistencia auditable de SALIDA administrativa, decisiones finales de incidencias, tarifas globales/individuales versionadas y migración candidata `20260902_09`.
+- [IMPLEMENTADO, TESTEADO, MIGRADO REAL Y COMMIT 4B-3B] Persistencia auditable de SALIDA administrativa, decisiones finales de incidencias, tarifas globales/individuales versionadas y revisión `20260902_09` aplicada.
 - [IMPLEMENTADO, TESTEADO, VALIDADO MANUALMENTE Y COMMIT 4B-3C] Portal de supervisión ADMIN/JEFATURA bajo `/asistencia/supervision`, búsqueda/filtros, resumen paginado, calendario individual, detalle diario y acciones web auditadas para completar SALIDA y decidir incidencias.
-- [IMPLEMENTADO Y TESTEADO EN ÁRBOL 4B-3D] Administración web append-only de tarifas exclusivamente ADMIN y exportación XLSX conjunta/individual para ADMIN/JEFATURA con filtros, paridad de proyección, neutralización de fórmulas y omisión de GPS.
+- [IMPLEMENTADO, TESTEADO, VALIDADO MANUALMENTE Y COMMIT 4B-3D] Administración web append-only de tarifas exclusivamente ADMIN y exportación XLSX conjunta/individual para ADMIN/JEFATURA con filtros, paridad de proyección, neutralización de fórmulas y omisión de GPS.
 
 ## 3. Asistencia 4B-2B integrada
 
@@ -83,11 +83,12 @@ Comunas aprobadas:
 - [CONFIRMADO PRE-MIGRACIÓN 2026-09-02] Antes del gate final, `boliklor_ot` permanecía en `20260831_07`; el backup/restore se completó sin ejecutar Alembic ni modificar manualmente datos reales.
 - [CONFIRMADO MIGRACIÓN REAL 2026-09-02] `alembic upgrade head` aplicó `20260901_08` sobre `boliklor_ot` con salida `0`. `alembic current` y `heads` informan `20260901_08 (head)` y `alembic check` informa `No new upgrade operations detected`.
 - [CONFIRMADO POST-MIGRACIÓN 2026-09-02] Se preservaron los 14 IDs históricos de lugares y los conteos/IDs de Identidad, RRHH, Asistencia, Inventario y OT. Quedaron 13 geocercas COMUNA activas con CUT únicos, La Pintana única, sin duplicados comunales activos; Base y Taller continúan sin geocerca y no existían zonas RADIO históricas que reclasificar.
-- [IMPLEMENTADO EN ÁRBOL 4B-3B] Revisión candidata `20260902_09`, hija lineal de `20260901_08`; agrega dos tablas, migra estados de incidencias con precheck y crea el seed global exacto de $30.000 vigente desde `2026-09-01`.
+- [IMPLEMENTADO, INTEGRADO Y MIGRADO REAL 4B-3B] Revisión `20260902_09`, hija lineal de `20260901_08`; agrega dos tablas, migra estados de incidencias con precheck y crea el seed global exacto de $30.000 vigente desde `2026-09-01`.
 - [VALIDADO POSTGRESQL DESECHABLE 2026-09-02] `boliklor_ot_test` aprobó `empty → 20260902_09`, `20260901_08 → 20260902_09`, downgrade/re-upgrade, mapeo histórico, paridad ORM, seed, constraints/FKs/índices, locks y concurrencia. El downgrade se rechaza antes de perder intervenciones o versiones nuevas de tarifas.
-- [NO MIGRADO REAL] `boliklor_ot` permanece en `20260901_08`; no se ejecutó `20260902_09` ni se modificaron esquema/datos reales durante 4B-3B.
+- [CONFIRMADO MIGRACIÓN REAL 2026-09-03] `boliklor_ot` migró exclusivamente de `20260901_08` a `20260902_09` con exit code `0`. Se preservaron 2 Workers, 2 sesiones, 4 marcajes y 4 incidencias pendientes; quedaron 0 intervenciones administrativas y el único registro de tarifa es el seed global de $30.000 vigente desde `2026-09-01`.
+- [CONFIRMADO BACKUP/RESTORE 2026-09-03] El dump custom previo permanece fuera del repositorio en `C:\Users\soporte\Documents\Boliklor\Backups\PostgreSQL\boliklor_ot_preflight_4b3_20260903_161511.dump`, 108176 bytes, SHA-256 `50986961E2DD042C95309ED1EE3F0CBE304F91CA5E218DC5B4E0BA8E3B117B14`; su restore reprodujo 23 tablas sin diferencias de conteo y la copia aprobó upgrade, downgrade compatible y re-upgrade.
 
-## 6. Validaciones ejecutadas hasta el 2026-09-02
+## 6. Validaciones ejecutadas hasta el 2026-09-03
 
 - `compileall -q app tests`: aprobado.
 - `pip check`: aprobado, `No broken requirements found`.
@@ -122,6 +123,9 @@ Comunas aprobadas:
 - 4B-3D regresión completa de Asistencia con `TEST_DATABASE_URL` desechable: 116/116 aprobadas.
 - 4B-3D suite completa aislada con `APP_ENV=test`, `AUTH_ENFORCED=false` y `TEST_DATABASE_URL` desechable: 209/209 aprobadas.
 - 4B-3D `python -m compileall -q app tests alembic`: aprobado; `pip check`: `No broken requirements found`; `git diff --check`: aprobado.
+- gate real 4B-3 post-migración: `alembic current` y `heads` informan `20260902_09 (head)`; `alembic check` informa `No new upgrade operations detected`; 17 columnas nuevas, nueve constraints requeridos y cinco índices requeridos verificados sin duplicados, huérfanos ni incoherencias.
+- smoke backend real de solo lectura 2026-09-03: Uvicorn en loopback respondió 200 para `/health`, GET de login, trabajadores, supervisión, filtros, detalle de Worker, detalle diario y lectura de tarifa. El calendario personal renderizó 200 con sesión SQL `READ ONLY`, la tarifa efectiva fue `$30.000 GLOBAL` y el acceso HTTP sin sesión conservó redirección 303. No se ejecutó login POST ni se crearon sesiones, tarifas, SALIDAS o decisiones.
+- post-migración focalizada sobre `boliklor_ot_test`: 44/44 pruebas de baseline, reglas, administración, supervisión, tarifas y concurrencia PostgreSQL aprobadas; `compileall`, `pip check` y `git diff --check` aprobados. Ningún test destructivo apuntó a `boliklor_ot`.
 
 ## 7. Riesgos y pendientes
 
@@ -140,7 +144,7 @@ Comunas aprobadas:
 - doble turno diferenciable;
 - incidencias;
 - exportación individual y conjunta a Excel;
-- tarifa provisional `$30.000 CLP` por jornada pagable: regla/proyección implementada en 4B-3A y persistencia global/individual versionada implementada en 4B-3B; administración web pendiente;
+- tarifa provisional `$30.000 CLP` por jornada pagable: regla/proyección implementada en 4B-3A, persistencia global/individual versionada implementada en 4B-3B y administración web append-only implementada en 4B-3D;
 - horas extra y días extra pendientes de definición posterior.
 
 ## 9. Asistencia 4B-3A integrada en `aea9c32`
@@ -171,9 +175,9 @@ Comunas aprobadas:
 - [IMPLEMENTADO Y TESTEADO] Las fechas previas a la primera tarifa muestran `Sin tarifa configurada para la fecha`; no existe fallback retroactivo y el total queda indeterminado.
 - [IMPLEMENTADO Y TESTEADO] Completar SALIDA y decidir incidencias usan los servicios transaccionales 4B-3B, actor autenticado, CSRF, mensajes seguros y respuesta 409 para estados concurrentemente finalizados. La SALIDA administrativa queda identificada y no fabrica GPS/geocerca.
 - [PRIVACIDAD VALIDADA] Las vistas no incluyen latitud ni longitud exactas; solo lugar, tipo/estado de geocerca y estado de precisión históricos.
-- [SIN CAMBIO DE ESQUEMA] 4B-3C no añade migraciones. El head de código continúa en `20260902_09` y `boliklor_ot` real permanece en `20260901_08`.
+- [SIN CAMBIO DE ESQUEMA PROPIO] 4B-3C no añade migraciones. El head de código continúa en `20260902_09`, actualmente aplicado en `boliklor_ot` real por el gate posterior de 4B-3.
 
-## 12. Asistencia 4B-3D implementada en el árbol
+## 12. Asistencia 4B-3D integrada y validada
 
 - [IMPLEMENTADO Y TESTEADO] `/admin/asistencia/tarifas` muestra historial global, actor/origen y creación; permite al ADMIN crear nuevas vigencias globales sin editar/eliminar versiones previas.
 - [IMPLEMENTADO Y TESTEADO] El detalle de Worker muestra tarifa efectiva `GLOBAL`/`INDIVIDUAL`, historial exclusivo de overrides y permite nuevas versiones individuales. No copia automáticamente la tarifa global.
@@ -182,15 +186,15 @@ Comunas aprobadas:
 - [IMPLEMENTADO Y TESTEADO] XLSX conjunto respeta período y búsqueda, incluye todas las filas filtradas en lotes y reproduce días trabajados, jornadas pagables, dobles turnos, incidencias y total de la proyección compartida.
 - [IMPLEMENTADO Y TESTEADO] XLSX individual contiene `Resumen` y `Detalle diario`, incluidos nocturno, incompleto, doble turno, tarifa/origen e incidencias. Una tarifa ausente se expresa como `Sin tarifa configurada` sin fallback ni total inventado.
 - [SEGURIDAD/PRIVACIDAD VALIDADA] Toda cadena se neutraliza ante prefijos de fórmula y caracteres XML de control; los nombres de archivo son constantes/seguros y los libros no contienen latitud, longitud ni coordenadas.
-- [SIN CAMBIO DE ESQUEMA] 4B-3D no añade migraciones. `boliklor_ot_test` permanece en `20260902_09`; `boliklor_ot` real continúa en `20260901_08` y no fue mutada.
-- [PENDIENTE MANUAL] El checklist reproducible para navegador y Excel/LibreOffice está en `docs/operations/attendance-4b3d-manual-validation.md`; no se declara ejecutado en este gate automatizado.
+- [SIN CAMBIO DE ESQUEMA PROPIO] 4B-3D no añade migraciones. El commit `ef468ec` conserva como head `20260902_09`, aplicado en `boliklor_ot_test` y, tras preflight/backup/restore aprobados, en `boliklor_ot` real.
+- [CONFIRMADO MANUALMENTE] El checklist reproducible de navegador y Excel/LibreOffice de `docs/operations/attendance-4b3d-manual-validation.md` fue aprobado antes de autorizar el gate de migración real.
 
 ## 13. Punto exacto de continuidad
 
-**Fase activa:** Asistencia 4B-3. Las subfases 4B-3A/3B están integradas en `aea9c32` y 4B-3C en `72534f5`; 4B-3D está implementada y testeada en el árbol sobre esa base. No se marca 4B-3 completa.
+**Fase activa:** cierre documental de Asistencia 4B-3. Las subfases 4B-3A/3B están integradas en `aea9c32`, 4B-3C en `72534f5` y 4B-3D en `ef468ec`; todas están implementadas y testeadas, 4B-3C/3D tienen validación manual confirmada y la revisión real `20260902_09` está aplicada.
 
-**Estado de cierre:** gate automatizado 4B-3D aprobado en pruebas focalizadas, PostgreSQL desechable, regresión de Asistencia y suite completa; todavía sin `git add`, commit o push. La validación manual en navegador/Excel está preparada pero pendiente de ejecución. La base real `boliklor_ot` permanece en `20260901_08` y no recibió ninguna mutación.
+**Estado de cierre:** migración real 4B-3 aprobada el 2026-09-03 después de revalidar Git, backup, identidad y prechecks. `boliklor_ot` está en `20260902_09 (head)`; estructura, seed, datos históricos, `alembic check`, smoke de lectura y 44 pruebas focalizadas quedaron verdes. Esta actualización de `CURRENT.md` permanece sin `git add`, commit o push.
 
-**Siguiente gate propuesto:** revisión humana del diff y ejecución del checklist manual 4B-3D contra `boliklor_ot_test`. Después, solo con autorización expresa, decidir commit/push y el gate separado de migración real `20260902_09`. No se avanzó automáticamente.
+**Siguiente gate propuesto:** revisión humana del diff exclusivamente documental de `CURRENT.md` y, solo con autorización expresa, decidir su commit/push. No avanzar automáticamente a otra fase ni realizar mutaciones administrativas.
 
 **Prohibiciones vigentes:** no ejecutar nuevas mutaciones de esquema/datos reales fuera de un gate explícito; no incluir backups, fuentes masivas, wheels, secretos, documentos laborales ni coordenadas exactas en Git o logs/UI no autorizada.

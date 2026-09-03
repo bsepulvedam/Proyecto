@@ -268,6 +268,19 @@ class AttendanceRulesTests(unittest.TestCase):
         with self.assertRaises(AttendanceRuleError):
             project_period(7, (mixed_worker,), (self.global_rate(),))
 
+    def test_supervision_can_expose_missing_rate_without_retroactive_fallback(self):
+        day = date(2026, 8, 31)
+        period = project_period(
+            7,
+            (self.facts(1, day, exit_time=(day, 18, 0)),),
+            (self.global_rate(effective_from=date(2026, 9, 1)),),
+            allow_missing_rates=True,
+        )
+        self.assertEqual(period.payable_shifts, 1)
+        self.assertEqual(period.missing_rate_days, 1)
+        self.assertIsNone(period.days[0].effective_rate)
+        self.assertIsNone(period.provisional_total_clp)
+
     def test_unknown_shift_is_visible_but_not_silently_paid(self):
         day = date(2026, 9, 2)
         unknown = self.facts(

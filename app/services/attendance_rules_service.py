@@ -31,6 +31,10 @@ class AttendanceRuleError(ValueError):
     pass
 
 
+class MissingProvisionalRateError(AttendanceRuleError):
+    pass
+
+
 @dataclass(frozen=True)
 class ShiftReference:
     code: str
@@ -118,8 +122,8 @@ class AttendanceDayProjection:
     payable_shifts: int
     is_double_shift: bool
     incident_count: int
-    effective_rate: EffectiveProvisionalRate
-    provisional_total_clp: int
+    effective_rate: EffectiveProvisionalRate | None
+    provisional_total_clp: int | None
 
 
 @dataclass(frozen=True)
@@ -132,7 +136,8 @@ class AttendancePeriodProjection:
     payable_shifts: int
     double_shift_days: int
     incident_count: int
-    provisional_total_clp: int
+    provisional_total_clp: int | None
+    missing_rate_days: int = 0
 
 
 def configured_shift_references() -> dict[str, ShiftReference]:
@@ -312,7 +317,7 @@ def resolve_effective_rate(
     individual = [version for version in applicable if version.worker_id == worker_id]
     candidates = individual or [version for version in applicable if version.worker_id is None]
     if not candidates:
-        raise AttendanceRuleError(
+        raise MissingProvisionalRateError(
             f"No existe tarifa provisional vigente para {target_date.isoformat()}."
         )
     selected = max(candidates, key=lambda version: (version.effective_from, version.version_id))
@@ -329,6 +334,8 @@ def project_day(
     operational_date: date,
     sessions: Iterable[AttendanceSessionProjection],
     rate_versions: Iterable[ProvisionalRateVersion],
+    *,
+    allow_missing_rate: bool = False,
 ) -> AttendanceDayProjection:
     source_sessions = tuple(
         sorted(
@@ -354,11 +361,16 @@ def project_day(
     payable_shift_codes = tuple(
         code for code in PAYABLE_SHIFT_ORDER if code in active_shift_codes
     )
-    effective_rate = resolve_effective_rate(
-        operational_date,
-        worker_id,
-        rate_versions,
-    )
+    try:
+        effective_rate = resolve_effective_rate(
+            operational_date,
+            worker_id,
+            rate_versions,
+        )
+    except MissingProvisionalRateError:
+        if not allow_missing_rate:
+            raise
+        effective_rate = None
     payable_shifts = len(payable_shift_codes)
     return AttendanceDayProjection(
         worker_id=worker_id,
@@ -372,7 +384,11 @@ def project_day(
         is_double_shift=payable_shifts == 2,
         incident_count=sum(item.incident_count for item in source_sessions),
         effective_rate=effective_rate,
-        provisional_total_clp=payable_shifts * effective_rate.amount_clp,
+        provisional_total_clp=(
+            payable_shifts * effective_rate.amount_clp
+            if effective_rate is not None
+            else None
+        ),
     )
 
 
@@ -382,6 +398,7 @@ def project_period(
     rate_versions: Iterable[ProvisionalRateVersion],
     *,
     shift_references: Mapping[str, ShiftReference] | None = None,
+    allow_missing_rates: bool = False,
 ) -> AttendancePeriodProjection:
     projected_sessions = [
         project_session(facts, shift_references=shift_references)
@@ -395,9 +412,16 @@ def project_period(
     for session in projected_sessions:
         sessions_by_date.setdefault(session.operational_date, []).append(session)
     days = tuple(
-        project_day(worker_id, target_date, sessions_by_date[target_date], rates)
+        project_day(
+            worker_id,
+            target_date,
+            sessions_by_date[target_date],
+            rates,
+            allow_missing_rate=allow_missing_rates,
+        )
         for target_date in sorted(sessions_by_date)
     )
+    missing_rate_days = sum(day.effective_rate is None for day in days)
     return AttendancePeriodProjection(
         worker_id=worker_id,
         days=days,
@@ -409,5 +433,10 @@ def project_period(
         payable_shifts=sum(day.payable_shifts for day in days),
         double_shift_days=sum(day.is_double_shift for day in days),
         incident_count=sum(day.incident_count for day in days),
-        provisional_total_clp=sum(day.provisional_total_clp for day in days),
+        provisional_total_clp=(
+            None
+            if missing_rate_days
+            else sum(day.provisional_total_clp or 0 for day in days)
+        ),
+        missing_rate_days=missing_rate_days,
     )

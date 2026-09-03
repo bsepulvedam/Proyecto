@@ -5,11 +5,11 @@ Este documento describe el estado verificable del repositorio y el punto exacto 
 ## 1. Identificación
 
 - **Proyecto:** Boliklor.
-- **Fecha de actualización:** 2026-09-02 (`America/Santiago`).
+- **Fecha de actualización:** 2026-09-03 (`America/Santiago`).
 - **Rama:** `main`, con seguimiento de `origin/main`.
-- **Último commit base:** `0678869d4c5a68d900e27c17432b3cdd9b261c67` (`0678869`), `Implementar geocercas comunales de Asistencia 4B-2B`.
+- **Último commit base:** `aea9c32043cbd9dead18c746e3bc9272299d39ad` (`aea9c32`), `Implementar base de supervisión de Asistencia 4B-3A y 4B-3B`.
 - **Sincronía conocida:** `HEAD` y la referencia local `origin/main` están 0/0; no se ejecutó `fetch`.
-- **Estado del árbol:** 4B-2B está integrada y sincronizada con la referencia local `origin/main`. Asistencia 4B-3A y 4B-3B están implementadas/testeadas en el árbol y todavía sin commit/push. No se ejecutaron `git add`, commit, push ni deploy durante 4B-3A/4B-3B.
+- **Estado del árbol:** 4B-2B, 4B-3A y 4B-3B están integradas en `aea9c32`, sincronizado con la referencia local `origin/main` al iniciar este gate. Asistencia 4B-3C está implementada y testeada en el árbol, todavía sin commit/push. No se ejecutaron `git add`, commit, push ni deploy durante 4B-3C.
 
 ## 2. Estado funcional
 
@@ -17,9 +17,10 @@ Este documento describe el estado verificable del repositorio y el punto exacto 
 - [IMPLEMENTADO, INTEGRADO Y VALIDADO MANUALMENTE] Asistencia 4B-2 registra `ENTRADA`/`SALIDA` con GPS puntual, usa hora del servidor y exige 5 minutos mínimos antes de SALIDA.
 - [IMPLEMENTADO, INTEGRADO Y VALIDADO MANUALMENTE] Asistencia 4B-2A proyecta sesiones cerradas en el calendario personal, ofrece detalle diario y clasificación visual de revisión/fuera de rango.
 - [IMPLEMENTADO, MIGRADO Y VALIDADO 4B-2B] Geocercas `RADIO` y `COMUNA`, administración por ADMIN, detección automática entre todas las zonas activas, tolerancia comunal y persistencia del snapshot geográfico. Gates automatizado, PostgreSQL desechable, manual, backup/restore y migración real aprobados.
-- [IMPLEMENTADO Y TESTEADO EN ÁRBOL 4B-3A] Motor de dominio común para actividad, incompletos, situación horaria, jornadas pagables, doble turno, tarifa efectiva versionada y total provisional. El calendario personal explicita sesiones incompletas.
-- [IMPLEMENTADO, TESTEADO Y VALIDADO EN POSTGRESQL DESECHABLE 4B-3B] Persistencia auditable de SALIDA administrativa, decisiones finales de incidencias, tarifas globales/individuales versionadas y migración candidata `20260902_09`.
-- [PENDIENTE 4B-3C+] Portal de supervisión ADMIN/JEFATURA, rutas/UI administrativas, búsqueda/filtros, calendario individual de supervisión y reportes Excel.
+- [IMPLEMENTADO, TESTEADO Y COMMIT 4B-3A] Motor de dominio común para actividad, incompletos, situación horaria, jornadas pagables, doble turno, tarifa efectiva versionada y total provisional. El calendario personal explicita sesiones incompletas.
+- [IMPLEMENTADO, TESTEADO, VALIDADO EN POSTGRESQL DESECHABLE Y COMMIT 4B-3B] Persistencia auditable de SALIDA administrativa, decisiones finales de incidencias, tarifas globales/individuales versionadas y migración candidata `20260902_09`.
+- [IMPLEMENTADO Y TESTEADO EN ÁRBOL 4B-3C] Portal de supervisión ADMIN/JEFATURA bajo `/asistencia/supervision`, búsqueda/filtros, resumen paginado, calendario individual, detalle diario y acciones web auditadas para completar SALIDA y decidir incidencias.
+- [PENDIENTE 4B-3D+] Exportación individual/conjunta a Excel y administración web de tarifas exclusivamente ADMIN.
 
 ## 3. Asistencia 4B-2B integrada
 
@@ -112,6 +113,10 @@ Comunas aprobadas:
 - 4B-3B suite completa con `APP_ENV=test`, `AUTH_ENFORCED=false` y `TEST_DATABASE_URL` desechable: 194/194 aprobadas. La primera ejecución sin el aislamiento de autenticación produjo 20 redirecciones 303 heredadas; las otras 174 pruebas pasaron y la repetición correctamente aislada quedó verde.
 - 4B-3B Alembic/PostgreSQL: `empty → head` en esquema temporal eliminado tras validar; salto desde `20260901_08`, downgrade/re-upgrade, mapeos, seed global, tres índices de tarifa, FK compuesta de SALIDA, dos rechazos defensivos de downgrade y `alembic check` aprobados.
 - 4B-3B `python -m compileall -q app tests alembic`: aprobado; `pip check`: `No broken requirements found`; `git diff --check`: aprobado.
+- 4B-3C focalizada: 8/8 aprobadas para consultas/proyección, período/búsqueda, tarifa ausente, RBAC, CSRF, privacidad, SALIDA administrativa e incidencias desde HTTP.
+- 4B-3C regresión completa de Asistencia con `TEST_DATABASE_URL` desechable: 109/109 aprobadas, incluidas 3/3 de locks/concurrencia PostgreSQL sobre `boliklor_ot_test` en `20260902_09`.
+- 4B-3C suite completa aislada con `APP_ENV=test`, `AUTH_ENFORCED=false` y `TEST_DATABASE_URL` desechable: 202/202 aprobadas.
+- 4B-3C `python -m compileall -q app tests alembic`: aprobado; `pip check`: `No broken requirements found`; `git diff --check`: aprobado.
 
 ## 7. Riesgos y pendientes
 
@@ -133,7 +138,7 @@ Comunas aprobadas:
 - tarifa provisional `$30.000 CLP` por jornada pagable: regla/proyección implementada en 4B-3A y persistencia global/individual versionada implementada en 4B-3B; administración web pendiente;
 - horas extra y días extra pendientes de definición posterior.
 
-## 9. Asistencia 4B-3A implementada en el árbol
+## 9. Asistencia 4B-3A integrada en `aea9c32`
 
 - [CONFIRMADO] referencias horarias: `DIURNO 09:00–18:00` y `NOCTURNO 19:00–05:00` del día siguiente. `SesionTrabajo.turno_id` y `fecha_operacional` permanecen como hechos y las horas originales no se alteran.
 - [IMPLEMENTADO Y TESTEADO] `attendance_rules_service.py` proyecta sesión, día y período, distingue actividad/incompleto y deriva situaciones horarias con la tolerancia configurada de 10 minutos.
@@ -143,7 +148,7 @@ Comunas aprobadas:
 - [IMPLEMENTADO Y TESTEADO] El calendario personal reutiliza la proyección común de sesión y muestra `Actividad registrada · incompleta` / `Jornada incompleta: falta SALIDA` sin convertirla en ausencia.
 - [IMPLEMENTADO EN 4B-3B] La persistencia de tarifas adapta filas ORM a `ProvisionalRateVersion` y reutiliza `resolve_effective_rate`; no existe una segunda regla de precedencia.
 
-## 10. Asistencia 4B-3B implementada en el árbol
+## 10. Asistencia 4B-3B integrada en `aea9c32`
 
 - [IMPLEMENTADO Y TESTEADO] `IntervencionSalidaAdministrativa` expresa estructuralmente una SALIDA originalmente ausente y enlaza sesión, SALIDA administrativa, hora introducida, actor, motivo y timestamp. La FK compuesta exige mismo marcaje/sesión/tipo SALIDA y las unicidades impiden duplicados.
 - [IMPLEMENTADO Y TESTEADO] `complete_administrative_exit` bloquea la sesión, revalida ENTRADA/ausencia de SALIDA, exige datetime con zona, orden temporal, mínimo de cinco minutos y motivo. SALIDA, auditoría y cierre se confirman o revierten juntos; no crea GPS ni evaluación geográfica.
@@ -152,12 +157,23 @@ Comunas aprobadas:
 - [IMPLEMENTADO EN MIGRACIÓN CANDIDATA] `20260902_09` prechequea estados/coherencia, mapea `RESUELTA→APROBADA` y `DESCARTADA→RECHAZADA`, y siembra global $30.000 desde la primera fecha operacional real verificada (`2026-09-01`). El downgrade traduce estados de vuelta cuando es seguro y aborta ante intervenciones o tarifas posteriores.
 - [PENDIENTE] No existen todavía rutas/UI para estas acciones. RBAC/CSRF se aplicarán en el borde web: ADMIN/JEFATURA para supervisión y sólo ADMIN para mutar tarifas.
 
-## 11. Punto exacto de continuidad
+## 11. Asistencia 4B-3C implementada en el árbol
 
-**Fase activa:** Asistencia 4B-3. Las subfases 4B-3A y 4B-3B están implementadas y testeadas en el árbol sobre la base Git `0678869`; 4B-2B está commiteada y sincronizada con la referencia local `origin/main`.
+- [IMPLEMENTADO Y TESTEADO] Router separado bajo `/asistencia/supervision`, protegido por `ASISTENCIA_SUPERVISAR`; ADMIN y JEFATURA acceden, TRABAJADOR recibe 403 y el anónimo redirección segura a login.
+- [IMPLEMENTADO Y TESTEADO] El listado usa período inclusivo, búsqueda por nombre/apellido/código, máximo de 366 días y paginación de 25. Incluye Workers activos aunque no tengan actividad e inactivos cuando conservan sesiones en el período.
+- [IMPLEMENTADO Y TESTEADO] `attendance_supervision_service.py` carga Workers, sesiones, turnos, marcajes, snapshots geográficos, incidencias, intervenciones y tarifas por lotes; reutiliza la proyección 4B-3A y no ejecuta una consulta por Worker.
+- [IMPLEMENTADO Y TESTEADO] Resumen y calendario muestran días trabajados, actividad, jornadas pagables, dobles turnos, incidencias y total provisional. Los estados se expresan con texto y color; el detalle conserva turno factual, cruces de medianoche, geocerca histórica y decisión administrativa.
+- [IMPLEMENTADO Y TESTEADO] Las fechas previas a la primera tarifa muestran `Sin tarifa configurada para la fecha`; no existe fallback retroactivo y el total queda indeterminado.
+- [IMPLEMENTADO Y TESTEADO] Completar SALIDA y decidir incidencias usan los servicios transaccionales 4B-3B, actor autenticado, CSRF, mensajes seguros y respuesta 409 para estados concurrentemente finalizados. La SALIDA administrativa queda identificada y no fabrica GPS/geocerca.
+- [PRIVACIDAD VALIDADA] Las vistas no incluyen latitud ni longitud exactas; solo lugar, tipo/estado de geocerca y estado de precisión históricos.
+- [SIN CAMBIO DE ESQUEMA] 4B-3C no añade migraciones. El head de código continúa en `20260902_09` y `boliklor_ot` real permanece en `20260901_08`.
 
-**Estado de cierre:** gate 4B-3B aprobado en SQLite y PostgreSQL desechable; todavía sin `git add`, commit o push. La base real `boliklor_ot` permanece en `20260901_08` y no recibió ninguna mutación 4B-3B.
+## 12. Punto exacto de continuidad
 
-**Siguiente gate propuesto:** revisión humana del diff 4B-3A+4B-3B. 4B-3C (portal/rutas de supervisión) requiere autorización expresa posterior; no se avanzó automáticamente.
+**Fase activa:** Asistencia 4B-3. Las subfases 4B-3A y 4B-3B están implementadas, testeadas e integradas en el commit `aea9c32`; 4B-3C está implementada y testeada en el árbol sobre esa base.
+
+**Estado de cierre:** gate 4B-3C aprobado en pruebas focalizadas y regresión de Asistencia; todavía sin `git add`, commit o push. Las pruebas PostgreSQL desechables de locks/concurrencia 4B-3B continúan verdes sobre `boliklor_ot_test` en `20260902_09`. La base real `boliklor_ot` permanece en `20260901_08` y no recibió ninguna mutación.
+
+**Siguiente gate propuesto:** revisión humana del diff y validación manual en navegador de 4B-3C. Después, con autorización expresa, 4B-3D incorporará exportación Excel individual/conjunta y administración web de tarifas solo ADMIN. No se avanzó automáticamente.
 
 **Prohibiciones vigentes:** no ejecutar nuevas mutaciones de esquema/datos reales fuera de un gate explícito; no incluir backups, fuentes masivas, wheels, secretos, documentos laborales ni coordenadas exactas en Git o logs/UI no autorizada.

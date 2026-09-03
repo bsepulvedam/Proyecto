@@ -109,6 +109,41 @@ def rate_versions_for_worker(
     )
 
 
+def rate_versions_for_workers(
+    db: Session,
+    worker_ids: list[int] | tuple[int, ...],
+    *,
+    through_date: date,
+) -> tuple[ProvisionalRateVersion, ...]:
+    """Load global and worker-specific versions in one bounded query."""
+    normalized_ids = tuple(sorted(set(worker_ids)))
+    if not normalized_ids:
+        return ()
+    rows = db.scalars(
+        select(TarifaProvisionalAsistencia)
+        .where(
+            TarifaProvisionalAsistencia.vigente_desde <= through_date,
+            or_(
+                TarifaProvisionalAsistencia.trabajador_id.is_(None),
+                TarifaProvisionalAsistencia.trabajador_id.in_(normalized_ids),
+            ),
+        )
+        .order_by(
+            TarifaProvisionalAsistencia.vigente_desde,
+            TarifaProvisionalAsistencia.id,
+        )
+    ).all()
+    return tuple(
+        ProvisionalRateVersion(
+            version_id=row.id,
+            effective_from=row.vigente_desde,
+            amount_clp=int(row.valor_clp),
+            worker_id=row.trabajador_id,
+        )
+        for row in rows
+    )
+
+
 def effective_rate_for_worker(
     db: Session,
     worker_id: int,

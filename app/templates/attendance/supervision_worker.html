@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Asistencia individual | BOLIKLOR{% endblock %}
+{% block body %}
+{% include "partials/sidebar.html" %}
+<div class="main-wrapper">
+  {% include "partials/topbar.html" %}
+  <main class="content">
+    <section class="history-heading">
+      <div><p class="section-kicker">Supervisión individual</p><h2>{{ supervision.worker.nombres }} {{ supervision.worker.apellidos }}</h2><p>{{ supervision.worker.codigo_interno or 'Sin código interno' }} · {{ supervision.period.start.strftime('%d/%m/%Y') }} al {{ supervision.period.end.strftime('%d/%m/%Y') }}</p>{% if not supervision.worker.activo %}<span class="badge-status badge-status--neutral">TRABAJADOR INACTIVO</span>{% endif %}</div>
+      <a class="btn btn-outline-dark" href="{{ url_for('attendance_supervision') }}?fecha_desde={{ supervision.period.start.isoformat() }}&amp;fecha_hasta={{ supervision.period.end.isoformat() }}">Volver al listado</a>
+    </section>
+
+    <section class="row g-3 kpi-grid" aria-label="Resumen del período">
+      {% for label, value in [('Días con actividad', supervision.projection.activity_days), ('Días trabajados', supervision.projection.completed_worked_days), ('Jornadas pagables', supervision.projection.payable_shifts), ('Dobles turnos', supervision.projection.double_shift_days), ('Incidencias', supervision.projection.incident_count)] %}
+      <div class="col-12 col-sm-6 col-xl"><article class="kpi-card"><div><p>{{ label }}</p><strong>{{ value }}</strong></div></article></div>
+      {% endfor %}
+      <div class="col-12 col-sm-6 col-xl"><article class="kpi-card"><div><p>Total provisional</p><strong>{{ supervision.projection.provisional_total_clp|clp }}</strong></div></article></div>
+    </section>
+
+    {% set days_by_date = supervision.days_by_date %}
+    <section class="data-card supervision-calendar-card">
+      <div class="data-card-header"><div><span class="section-icon"><i class="bi bi-calendar3"></i></span><div><h2>Calendario de supervisión</h2><p>Los estados se expresan con texto además de color.</p></div></div></div>
+      <div class="calendar-legend">
+        <span><i class="calendar-swatch calendar-swatch--worked"></i> Jornada correcta</span><span><i class="calendar-swatch calendar-swatch--review"></i> Incompleta/incidencia/revisión</span><span><i class="calendar-swatch calendar-swatch--out-of-range"></i> Fuera de rango</span><span><i class="calendar-swatch calendar-swatch--neutral"></i> Sin actividad</span>
+      </div>
+      <div class="calendar-weekdays">{% for name in ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'] %}<span>{{ name }}</span>{% endfor %}</div>
+      <div class="supervision-calendar-grid">
+        {% for _ in range(supervision.period.start.weekday()) %}<div class="calendar-day is-empty" aria-hidden="true"></div>{% endfor %}
+        {% for target_date in calendar_dates %}
+        {% set item = days_by_date.get(target_date) %}
+        <article class="calendar-day {{ 'calendar-day--trabajado' if item and item.labels == ('JORNADA CORRECTA',) else ('calendar-day--revision' if item else 'calendar-day--neutral') }}">
+          <strong>{{ target_date.strftime('%d/%m') }}</strong>
+          {% if item %}{% for label in item.labels %}<small>{{ label }}</small>{% endfor %}<small>{{ item.projection.payable_shifts }} jornada(s) pagable(s)</small>{% else %}<small>SIN ACTIVIDAD</small>{% endif %}
+          <a class="stretched-link" aria-label="Ver detalle del {{ target_date.strftime('%d/%m/%Y') }}" href="{{ url_for('attendance_supervision_day', worker_id=supervision.worker.id, fecha=target_date.isoformat()) }}"></a>
+        </article>
+        {% endfor %}
+      </div>
+      <p class="calendar-policy-note px-3 pb-3">Una sesión incompleta conserva actividad y pagabilidad provisional; una incidencia no descuenta automáticamente.</p>
+    </section>
+  </main>
+</div>
+{% endblock %}

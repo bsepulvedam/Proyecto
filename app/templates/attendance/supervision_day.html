@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Detalle diario de asistencia | BOLIKLOR{% endblock %}
+{% block body %}
+{% include "partials/sidebar.html" %}
+<div class="main-wrapper">
+  {% include "partials/topbar.html" %}
+  <main class="content">
+    <section class="history-heading">
+      <div><p class="section-kicker">Detalle diario</p><h2>{{ supervision.worker.nombres }} {{ supervision.worker.apellidos }}</h2><p>Fecha operacional {{ target_date.strftime('%d/%m/%Y') }} · {{ supervision.worker.codigo_interno or 'Sin código interno' }}</p>{% if not supervision.worker.activo %}<span class="badge-status badge-status--neutral">TRABAJADOR INACTIVO</span>{% endif %}</div>
+      <a class="btn btn-outline-dark" href="{{ url_for('attendance_supervision_worker', worker_id=supervision.worker.id) }}?fecha_desde={{ target_date.isoformat() }}&amp;fecha_hasta={{ target_date.isoformat() }}">Volver al calendario</a>
+    </section>
+    {% include "partials/notification.html" %}
+
+    {% if not day %}
+    <section class="form-card empty-state"><span class="empty-state-icon"><i class="bi bi-calendar-x"></i></span><h3>Sin actividad</h3><p>No existen sesiones para esta fecha operacional.</p></section>
+    {% else %}
+    <section class="form-card">
+      <div class="detail-grid">
+        <div><span class="field-label">Situación</span>{% for label in day.labels %}<span class="badge-status badge-status--{{ 'success' if label == 'JORNADA CORRECTA' else 'warning' }} me-1">{{ label }}</span>{% endfor %}</div>
+        <div><span class="field-label">Jornadas pagables</span><strong>{{ day.projection.payable_shifts }} · {{ day.projection.payable_shift_codes|join(' + ') }}</strong></div>
+        <div><span class="field-label">Tarifa efectiva</span><strong>{{ day.projection.effective_rate.amount_clp|clp if day.projection.effective_rate else 'Sin tarifa configurada para la fecha' }}</strong>{% if day.projection.effective_rate %}<small class="d-block">{{ 'Individual' if day.projection.effective_rate.source == 'INDIVIDUAL' else 'Global' }} desde {{ day.projection.effective_rate.effective_from.strftime('%d/%m/%Y') }}</small>{% endif %}</div>
+        <div><span class="field-label">Total provisional</span><strong>{{ day.projection.provisional_total_clp|clp }}</strong></div>
+      </div>
+    </section>
+
+    {% for session in day.sessions %}
+    <section class="data-card supervision-session">
+      <div class="data-card-header"><div><span class="section-icon"><i class="bi bi-clock-history"></i></span><div><h2>{{ session.projection.shift_name }} ({{ session.projection.shift_code }})</h2><p>Sesión #{{ session.projection.session_id }} · {{ session.projection.recorded_state }}</p></div></div>{% if session.projection.is_incomplete %}<span class="badge-status badge-status--warning">Jornada incompleta: falta SALIDA</span>{% endif %}</div>
+      <div class="detail-grid supervision-detail-grid">
+        <div><span class="field-label">ENTRADA</span><strong>{{ session.projection.entry_time.strftime('%d/%m/%Y %H:%M') if session.projection.entry_time else 'Sin entrada' }}</strong><small class="d-block">{{ session.projection.entry_situation or 'Sin clasificación' }}</small></div>
+        <div><span class="field-label">SALIDA</span><strong>{{ session.projection.exit_time.strftime('%d/%m/%Y %H:%M') if session.projection.exit_time else 'Pendiente' }}</strong><small class="d-block">{{ session.projection.exit_situation or 'Sin clasificación' }}</small>{% if session.administrative_exit_reason %}<span class="badge-status badge-status--info mt-1">SALIDA agregada administrativamente</span><small class="d-block">Motivo: {{ session.administrative_exit_reason }}</small>{% endif %}</div>
+        <div><span class="field-label">Duración</span><strong>{{ session.projection.duration_minutes ~ ' minutos' if session.projection.duration_minutes is not none else 'Pendiente' }}</strong></div>
+        <div><span class="field-label">Jornada pagable</span><strong>{{ 'Sí, provisional' if session.projection.has_activity else 'No' }}</strong></div>
+      </div>
+
+      <div class="table-responsive"><table class="table mb-0">
+        <thead><tr><th>Marcaje</th><th>Hora</th><th>Lugar/geocerca histórica</th><th>Estado geográfico</th><th>Precisión</th></tr></thead>
+        <tbody>{% for mark in session.marks %}<tr><td><strong>{{ mark.kind }}</strong>{% if mark.is_administrative %}<span class="badge-status badge-status--info d-block mt-1">ADMINISTRATIVA</span>{% endif %}</td><td>{{ mark.occurred_at|local_datetime }}</td><td>{{ mark.place_name or 'Sin evaluación geográfica' }}{% if mark.geofence_type %} · {{ mark.geofence_type }}{% endif %}</td><td>{{ mark.geofence_status or 'No aplica' }}</td><td>{{ mark.accuracy_status or 'No aplica' }}</td></tr>{% else %}<tr><td colspan="5">Sin marcajes.</td></tr>{% endfor %}</tbody>
+      </table></div>
+
+      {% for mark in session.marks %}{% for incident in mark.incidents %}
+      <article class="supervision-incident">
+        <div><strong>{{ incident.kind }}</strong> <span class="badge-status badge-status--{{ 'warning' if incident.status == 'PENDIENTE' else ('success' if incident.status == 'APROBADA' else 'danger') }}">{{ incident.status }}</span>{% if incident.detail %}<p>{{ incident.detail }}</p>{% endif %}{% if incident.resolution_comment %}<p>Comentario de resolución: {{ incident.resolution_comment }}</p>{% endif %}</div>
+        {% if incident.status == 'PENDIENTE' %}
+        <form method="post" action="{{ url_for('attendance_supervision_incident_decision', incident_id=incident.id) }}">
+          <input type="hidden" name="csrf_token" value="{{ request.cookies.get('boliklor_csrf', '') }}">
+          <label class="field-label" for="comentario-{{ incident.id }}">Comentario administrativo</label>
+          <textarea class="form-control" id="comentario-{{ incident.id }}" name="comentario" maxlength="1000" rows="2"></textarea>
+          <div class="admin-actions mt-2"><button class="btn btn-sm btn-outline-success" type="submit" name="decision" value="APROBADA">Aprobar</button><button class="btn btn-sm btn-outline-danger" type="submit" name="decision" value="RECHAZADA">Rechazar</button></div>
+        </form>
+        {% endif %}
+      </article>
+      {% endfor %}{% endfor %}
+
+      {% if session.projection.is_incomplete %}
+      <div class="detail-actions p-3"><button class="btn btn-brand" type="button" data-bs-toggle="modal" data-bs-target="#complete-exit-{{ session.projection.session_id }}">Completar SALIDA</button></div>
+      <div class="modal fade" id="complete-exit-{{ session.projection.session_id }}" tabindex="-1" aria-labelledby="complete-exit-title-{{ session.projection.session_id }}" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered"><div class="modal-content"><form method="post" action="{{ url_for('attendance_supervision_complete_exit', session_id=session.projection.session_id) }}">
+          <input type="hidden" name="csrf_token" value="{{ request.cookies.get('boliklor_csrf', '') }}">
+          <div class="modal-header"><h2 class="modal-title fs-5" id="complete-exit-title-{{ session.projection.session_id }}">Confirmar SALIDA administrativa</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>
+          <div class="modal-body"><dl class="attendance-status-list"><div><dt>Trabajador</dt><dd>{{ supervision.worker.nombres }} {{ supervision.worker.apellidos }}</dd></div><div><dt>Fecha operacional</dt><dd>{{ target_date.strftime('%d/%m/%Y') }}</dd></div><div><dt>Turno</dt><dd>{{ session.projection.shift_name }} ({{ session.projection.shift_code }})</dd></div><div><dt>ENTRADA</dt><dd>{{ session.projection.entry_time.strftime('%d/%m/%Y %H:%M') }}</dd></div></dl><label class="field-label mt-3" for="salida-at-{{ session.projection.session_id }}">Fecha/hora propuesta</label><input class="form-control" id="salida-at-{{ session.projection.session_id }}" name="salida_at" type="datetime-local" required><label class="field-label mt-3" for="motivo-{{ session.projection.session_id }}">Motivo obligatorio</label><textarea class="form-control" id="motivo-{{ session.projection.session_id }}" name="motivo" maxlength="1000" rows="3" required></textarea><p class="calendar-policy-note">Esta acción crea un marcaje administrativo auditable; no fabrica GPS ni geocerca.</p></div>
+          <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button><button type="submit" class="btn btn-brand">Confirmar SALIDA administrativa</button></div>
+        </form></div></div>
+      </div>
+      {% endif %}
+    </section>
+    {% endfor %}
+    {% endif %}
+  </main>
+</div>
+{% endblock %}

@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Supervisión de asistencia | BOLIKLOR{% endblock %}
+{% block body %}
+{% include "partials/sidebar.html" %}
+<div class="main-wrapper">
+  {% include "partials/topbar.html" %}
+  <main class="content">
+    <section class="history-heading">
+      <div>
+        <p class="section-kicker">Asistencia</p>
+        <h2>Supervisión de trabajadores</h2>
+        <p>Resumen derivado de sesiones, incidencias y tarifas vigentes por fecha operacional.</p>
+      </div>
+    </section>
+
+    <section class="form-card">
+      <form class="supervision-filters" method="get" action="{{ url_for('attendance_supervision') }}">
+        <div><label class="field-label" for="fecha_desde">Desde</label><input class="form-control" id="fecha_desde" name="fecha_desde" type="date" value="{{ input_start }}" required></div>
+        <div><label class="field-label" for="fecha_hasta">Hasta</label><input class="form-control" id="fecha_hasta" name="fecha_hasta" type="date" value="{{ input_end }}" required></div>
+        <div><label class="field-label" for="q">Nombre, apellido o código</label><input class="form-control" id="q" name="q" type="search" maxlength="100" value="{{ input_query }}" placeholder="Buscar trabajador"></div>
+        <button class="btn btn-brand" type="submit">Aplicar filtros</button>
+      </form>
+      {% if error %}<div class="alert alert-danger mt-3 mb-0" role="alert">{{ error }}</div>{% endif %}
+      <p class="calendar-policy-note">Período inclusivo, con un máximo de 366 días.</p>
+    </section>
+
+    <section class="data-card">
+      <div class="data-card-header"><div><span class="section-icon"><i class="bi bi-people"></i></span><div><h2>{{ listing.total_workers }} trabajadores</h2><p>{{ listing.period.start.strftime('%d/%m/%Y') }} al {{ listing.period.end.strftime('%d/%m/%Y') }}</p></div></div></div>
+      <div class="table-responsive"><table class="table mb-0 supervision-table">
+        <thead><tr><th>Trabajador</th><th>Días trabajados</th><th>Jornadas pagables</th><th>Dobles turnos</th><th>Incidencias</th><th>Total provisional</th><th>Acción</th></tr></thead>
+        <tbody>
+          {% for item in listing.workers %}
+          <tr>
+            <td><strong>{{ item.worker.nombres }} {{ item.worker.apellidos }}</strong><small class="d-block text-secondary">{{ item.worker.codigo_interno or 'Sin código' }}</small>{% if not item.worker.activo %}<span class="badge-status badge-status--neutral mt-1">INACTIVO · CON HISTORIA</span>{% endif %}</td>
+            <td>{{ item.projection.completed_worked_days }}</td>
+            <td>{{ item.projection.payable_shifts }}</td>
+            <td>{{ item.projection.double_shift_days }}</td>
+            <td>{{ item.projection.incident_count }}</td>
+            <td>{{ item.projection.provisional_total_clp|clp }}</td>
+            <td><a class="btn btn-sm btn-outline-dark" href="{{ url_for('attendance_supervision_worker', worker_id=item.worker.id) }}?fecha_desde={{ listing.period.start.isoformat() }}&amp;fecha_hasta={{ listing.period.end.isoformat() }}">Ver asistencia</a></td>
+          </tr>
+          {% else %}
+          <tr><td colspan="7"><div class="empty-state"><h3>Sin trabajadores para mostrar</h3><p>No hay coincidencias con los filtros aplicados.</p></div></td></tr>
+          {% endfor %}
+        </tbody>
+      </table></div>
+      {% if listing.total_pages > 1 %}
+      <nav class="supervision-pagination" aria-label="Paginación de trabajadores">
+        {% if listing.page > 1 %}<a class="btn btn-sm btn-outline-dark" href="?fecha_desde={{ listing.period.start.isoformat() }}&amp;fecha_hasta={{ listing.period.end.isoformat() }}&amp;q={{ listing.query|urlencode }}&amp;page={{ listing.page - 1 }}">Anterior</a>{% endif %}
+        <span>Página {{ listing.page }} de {{ listing.total_pages }}</span>
+        {% if listing.page < listing.total_pages %}<a class="btn btn-sm btn-outline-dark" href="?fecha_desde={{ listing.period.start.isoformat() }}&amp;fecha_hasta={{ listing.period.end.isoformat() }}&amp;q={{ listing.query|urlencode }}&amp;page={{ listing.page + 1 }}">Siguiente</a>{% endif %}
+      </nav>
+      {% endif %}
+    </section>
+  </main>
+</div>
+{% endblock %}

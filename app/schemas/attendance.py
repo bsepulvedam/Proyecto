@@ -4,6 +4,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from app.core.time import app_timezone
+
 
 class EvidenciaGPSCreate(BaseModel):
     latitud: Decimal = Field(ge=Decimal("-90"), le=Decimal("90"), max_digits=12, decimal_places=9)
@@ -56,6 +58,46 @@ class AttendanceMarkForm(BaseModel):
             precision_m=self.precision_m,
             capturada_at=self.capturada_at,
         )
+
+
+class AdministrativeExitForm(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    salida_at: datetime
+    motivo: str = Field(min_length=1, max_length=1000)
+
+    @field_validator("salida_at")
+    @classmethod
+    def use_operational_timezone(cls, value: datetime) -> datetime:
+        return value if value.tzinfo is not None else value.replace(tzinfo=app_timezone())
+
+    @field_validator("motivo")
+    @classmethod
+    def normalize_reason(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("El motivo es obligatorio")
+        return normalized
+
+
+class IncidentDecisionForm(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    decision: Literal["APROBADA", "RECHAZADA"]
+    comentario: str | None = Field(default=None, max_length=1000)
+
+    @field_validator("decision", mode="before")
+    @classmethod
+    def normalize_decision(cls, value: object) -> object:
+        return value.strip().upper() if isinstance(value, str) else value
+
+    @field_validator("comentario")
+    @classmethod
+    def normalize_comment(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = value.strip()
+        return normalized or None
 
 
 class PlaceData(BaseModel):

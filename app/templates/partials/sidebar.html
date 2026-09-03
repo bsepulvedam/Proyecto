@@ -12,6 +12,9 @@
       <a class="sidebar-link{% if active_page == 'attendance_justifications' %} active{% endif %}" href="{{ url_for('my_justifications') }}"><i class="bi bi-file-earmark-text"></i><span>Justificar inasistencia</span></a>
     {% else %}
       <a class="sidebar-link{% if active_page == 'dashboard' %} active{% endif %}" href="{{ url_for('dashboard') }}"><i class="bi bi-grid-1x2-fill"></i><span>Dashboard</span></a>
+      {% if 'ADMIN' in request.state.current_user.role_codes or 'JEFATURA' in request.state.current_user.role_codes %}
+        <a class="sidebar-link{% if active_page == 'attendance_supervision' %} active{% endif %}" href="{{ url_for('attendance_supervision') }}"><i class="bi bi-calendar2-week"></i><span>Supervisión asistencia</span></a>
+      {% endif %}
       {% if 'ADMIN' in request.state.current_user.role_codes %}
         <a class="sidebar-link{% if active_page == 'products' %} active{% endif %}" href="{{ url_for('products') }}"><i class="bi bi-box-seam"></i><span>Productos</span></a>
         <div class="sidebar-subnav sidebar-subnav--families" aria-label="Opciones de productos">

@@ -1,6 +1,10 @@
 "use strict";
 
 document.addEventListener("DOMContentLoaded", () => {
+  document.querySelectorAll("[data-app-toast]").forEach((element) => {
+    window.bootstrap?.Toast.getOrCreateInstance(element).show();
+  });
+
   const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
   if (csrfToken) {
     document.querySelectorAll('form[method="post" i]').forEach((form) => {

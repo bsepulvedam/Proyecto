@@ -39,16 +39,25 @@ class AttendanceCalendarDay:
 
 
 def _calendar_session_summary(session: SesionTrabajo) -> AttendanceSessionProjection:
+    return project_session(attendance_session_facts(session))
+
+
+def attendance_session_facts(
+    session: SesionTrabajo,
+    *,
+    incident_states: frozenset[str] | None = frozenset({"PENDIENTE"}),
+) -> AttendanceSessionFacts:
+    """Adapt one loaded ORM session to the shared attendance domain facts."""
     entry = next((mark for mark in session.marcajes if mark.tipo == "ENTRADA"), None)
     exit_mark = next((mark for mark in session.marcajes if mark.tipo == "SALIDA"), None)
-    pending_incidents = tuple(
+    incidents = tuple(
         incident
         for mark in session.marcajes
         for incident in mark.incidencias
-        if incident.estado == "PENDIENTE"
+        if incident_states is None or incident.estado in incident_states
     )
-    incident_types = tuple(sorted({incident.tipo for incident in pending_incidents}))
-    return project_session(AttendanceSessionFacts(
+    incident_types = tuple(sorted({incident.tipo for incident in incidents}))
+    return AttendanceSessionFacts(
         session_id=session.id,
         worker_id=session.trabajador_id,
         operational_date=session.fecha_operacional,
@@ -57,9 +66,9 @@ def _calendar_session_summary(session: SesionTrabajo) -> AttendanceSessionProjec
         recorded_state=session.estado,
         entry_at=entry.ocurrido_at if entry else None,
         exit_at=exit_mark.ocurrido_at if exit_mark else None,
-        incident_count=len(pending_incidents),
+        incident_count=len(incidents),
         incident_types=incident_types,
-    ))
+    )
 
 
 def calendar_month(

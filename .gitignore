@@ -5,3 +5,6 @@ __pycache__/
 output/
 storage/
 .env.test.local
+data/inventario_sync/
+
+data/inventario_sync/

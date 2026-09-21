@@ -1,200 +1,106 @@
 # Estado actual y continuidad de Boliklor
 
-Este documento describe el estado verificable del repositorio y el punto exacto para continuar. Prevalecen código, configuración, migraciones y tests.
+Fuente compacta de continuidad. Ante diferencias prevalecen código ejecutable, configuración efectiva, migraciones y tests. Estados usados: `[IMPLEMENTADO]`, `[CONFIRMADO]`, `[PARCIAL]`, `[PREVISTO]`, `[PENDIENTE]` y `[DEUDA_TECNICA]`.
 
-## 1. Identificación
+## 1. Estado Git verificado
 
-- **Proyecto:** Boliklor.
-- **Fecha de actualización:** 2026-09-03 (`America/Santiago`).
-- **Rama:** `main`, con seguimiento de `origin/main`.
-- **Último commit base:** `ef468ec`, `Completar tarifas y exportación de Asistencia 4B-3D`.
-- **Sincronía conocida:** `HEAD` y la referencia local `origin/main` están 0/0; no se ejecutó `fetch`.
-- **Estado del árbol:** 4B-3A/3B están integradas en `aea9c32`, 4B-3C en `72534f5` y 4B-3D en `ef468ec`. La única modificación local es esta actualización documental posterior a la migración real; no se ejecutaron `git add`, commit, push ni deploy durante el gate.
+- [CONFIRMADO 2026-09-07] Rama `main`; `HEAD` real `e4251dc0f7a1085f4f24d64e92dfc6771755df3a` (`e4251dc`, `Actualizar cierre de Asistencia 4B-3`, 2026-09-03T17:14:54-04:00).
+- [CONFIRMADO 2026-09-07] Referencia local `origin/main`: `e4251dc0f7a1085f4f24d64e92dfc6771755df3a`; divergencia `HEAD...origin/main`: 0 izquierda / 0 derecha. No se ejecutó `fetch`, por lo que esto no confirma el estado remoto más reciente.
+- [CONFIRMADO ANTES DE ESTE HANDOFF] `git status`: árbol limpio; `git diff` y `git diff --stat`: vacíos.
+- [CONFIRMADO DESPUÉS DE ESTE HANDOFF] La única modificación esperada es `CURRENT.md`. No se ejecutaron `git add`, commit, push, rebase, reset ni deploy.
 
-## 2. Estado funcional
+## 2. Base efectiva y Alembic
 
-- [IMPLEMENTADO Y CONFIRMADO] Identidad/acceso, RRHH básico, Inventario parcial y Órdenes de trabajo heredadas conservan su alcance previo.
-- [IMPLEMENTADO, INTEGRADO Y VALIDADO MANUALMENTE] Asistencia 4B-2 registra `ENTRADA`/`SALIDA` con GPS puntual, usa hora del servidor y exige 5 minutos mínimos antes de SALIDA.
-- [IMPLEMENTADO, INTEGRADO Y VALIDADO MANUALMENTE] Asistencia 4B-2A proyecta sesiones cerradas en el calendario personal, ofrece detalle diario y clasificación visual de revisión/fuera de rango.
-- [IMPLEMENTADO, MIGRADO Y VALIDADO 4B-2B] Geocercas `RADIO` y `COMUNA`, administración por ADMIN, detección automática entre todas las zonas activas, tolerancia comunal y persistencia del snapshot geográfico. Gates automatizado, PostgreSQL desechable, manual, backup/restore y migración real aprobados.
-- [IMPLEMENTADO, TESTEADO Y COMMIT 4B-3A] Motor de dominio común para actividad, incompletos, situación horaria, jornadas pagables, doble turno, tarifa efectiva versionada y total provisional. El calendario personal explicita sesiones incompletas.
-- [IMPLEMENTADO, TESTEADO, MIGRADO REAL Y COMMIT 4B-3B] Persistencia auditable de SALIDA administrativa, decisiones finales de incidencias, tarifas globales/individuales versionadas y revisión `20260902_09` aplicada.
-- [IMPLEMENTADO, TESTEADO, VALIDADO MANUALMENTE Y COMMIT 4B-3C] Portal de supervisión ADMIN/JEFATURA bajo `/asistencia/supervision`, búsqueda/filtros, resumen paginado, calendario individual, detalle diario y acciones web auditadas para completar SALIDA y decidir incidencias.
-- [IMPLEMENTADO, TESTEADO, VALIDADO MANUALMENTE Y COMMIT 4B-3D] Administración web append-only de tarifas exclusivamente ADMIN y exportación XLSX conjunta/individual para ADMIN/JEFATURA con filtros, paridad de proyección, neutralización de fórmulas y omisión de GPS.
+- [CONFIRMADO READ ONLY 2026-09-07] Configuración efectiva de `.env`: PostgreSQL, base `boliklor_ot`, usuario `postgres`, servidor PostgreSQL 18.6 x86_64 Windows. No se expuso la URL ni credenciales.
+- [CONFIRMADO READ ONLY 2026-09-07] `alembic current`: `20260902_09 (head)`; `alembic heads`: `20260902_09 (head)`.
+- [CONFIRMADO READ ONLY 2026-09-07] Inventario real: 2 empresas (`ALM`, `BOLIKLOR`), 7 unidades, 150 productos, 1 movimiento con 1 detalle; tipo existente `RECEPCION`. No existe `AJUSTE_INICIAL`, por lo que el sistema sigue en `MODO_TRANSICION`.
+- [CONFIRMADO] No se ejecutaron migraciones ni se modificó `boliklor_ot` o `boliklor_ot_test` durante este handoff.
 
-## 3. Asistencia 4B-2B integrada
+## 3. Fases cerradas: Asistencia
 
-- [IMPLEMENTADO 4B-2B] `LugarTrabajo` admite geocerca opcional `RADIO` o `COMUNA`, `codigo_comuna` y prioridad positiva. Una sola zona comunal puede estar activa por `CUT_COM`.
-- [IMPLEMENTADO 4B-2B] `RADIO` usa Haversine contra centro/radio. `COMUNA` usa el polígono oficial, considera el borde dentro de rango y aplica `ATTENDANCE_COMMUNE_BOUNDARY_TOLERANCE_METERS=100` como valor provisional configurable.
-- [IMPLEMENTADO 4B-2B] Estados: `DENTRO_RANGO`, `DENTRO_TOLERANCIA`, `FUERA_RANGO` y `SIN_ZONA_CONFIGURADA`.
-- [IMPLEMENTADO 4B-2B] La selección automática evalúa todas las zonas activas y ordena por estado, prioridad administrativa ascendente, mejor margen y finalmente ID ascendente.
-- [IMPLEMENTADO 4B-2B] No se usan asignaciones trabajador-lugar para detectar la zona y el trabajador no puede elegirla.
-- [IMPLEMENTADO 4B-2B] `DENTRO_TOLERANCIA` se persiste con tolerancia/tipo/versión geométrica, no genera incidencia automática y queda disponible para futura supervisión ADMIN/JEFATURA.
-- [IMPLEMENTADO 4B-2B] `FUERA_RANGO` y `GPS_BAJA_PRECISION` conservan el comportamiento de incidencia. Fallas del catálogo comunal revierten el marcaje con un mensaje seguro.
-- [IMPLEMENTADO 4B-2B] La evaluación histórica conserva lugar, distancia, radio o tolerancia, tipo de geocerca, versión geométrica y versión de regla; editar o desactivar un lugar no reescribe la evidencia.
-- [IMPLEMENTADO 4B-2B] ADMIN crea, edita, activa/desactiva y prioriza lugares/geocercas. Las comunas se eligen por código del catálogo autorizado.
-- [IMPLEMENTADO 4B-2B] `/admin/lugares` confirma activar/desactivar mediante un modal que identifica la zona real. Tras la respuesta confirmada por backend muestra un toast temporal, cerrable y accesible; los errores no muestran éxito ni exponen detalles internos.
-- [CONFIRMADO MANUALMENTE 2026-09-02] Las 13 zonas COMUNA, administración RADIO/COMUNA, desactivación/reactivación y persistencia, marcaje, detección automática, ausencia de selección manual, mínimo de 5 minutos, calendario y detalle funcionan en navegador sin regresiones detectadas.
+Asistencia 4B-3 está cerrada y no es la fase activa. Sus pendientes pasan a backlog.
 
-## 4. Catálogo geográfico y procedencia
+- [IMPLEMENTADO Y CERRADO 4B-3A, `aea9c32`] Motor común de dominio para actividad, sesiones incompletas, situación horaria, jornadas pagables, doble turno, tarifa efectiva versionada y total provisional; calendario personal reutiliza la proyección.
+- [IMPLEMENTADO, MIGRADO Y CERRADO 4B-3B, `aea9c32`] SALIDA administrativa transaccional/auditable, decisiones finales de incidencias y tarifas globales/individuales append-only. Migración `20260902_09` aplicada realmente a `boliklor_ot`.
+- [IMPLEMENTADO Y CERRADO 4B-3C, `72534f5`] Supervisión ADMIN/JEFATURA bajo `/asistencia/supervision`, búsqueda, período, paginación, resumen, calendario/detalle individual y acciones auditadas, con CSRF/RBAC y sin exponer coordenadas exactas.
+- [IMPLEMENTADO Y CERRADO 4B-3D, `ef468ec`] Administración de tarifas solo ADMIN y XLSX conjunto/individual para ADMIN/JEFATURA, con paridad de proyección, neutralización de fórmulas y omisión de GPS.
+- [CONFIRMADO CIERRE, `e4251dc`] Gate real posterior: backup/restore previamente ensayado, base en `20260902_09`, `alembic check` sin drift, smoke de lectura y 44/44 pruebas focalizadas. Históricamente también quedaron verdes la suite completa aislada 209/209, la regresión de Asistencia 116/116 y las pruebas PostgreSQL de locks/concurrencia 3/3.
+- [BACKLOG ASISTENCIA] Política legal de retención/acceso GPS, fuente de planificación/horario esperado, offline/fraude, alertas, revisión completa de justificaciones, horas/días extra y remuneración definitiva. No reabrir sin decisión expresa.
 
-- **Fuente oficial:** SUBDERE, División Político Administrativa 2023, capa `COMUNAS_v1`, actualización declarada 2023-08-03.
-- **URL:** `https://ide.subdere.gov.cl/descargas/SHP/Limite_DPA_03082023.rar`.
-- **Archivo fuente:** 262380302 bytes; SHA-256 `4c8dd01ca4ca7d8b111dac78b88cc8ac64c1af7b8ebe0c85a21eaab337ae3fd3`.
-- **CRS:** la fuente IDE declara EPSG:5360; `pyproj.CRS.to_epsg()` sobre el WKT ESRI original devuelve `5360`; el subconjunto se transforma a EPSG:4326.
-- **GeoJSON versionable:** `app/data/geofences/subdere_dpa_2023_approved_communes.geojson`.
-- **GeoJSON final:** 13 features, 656212 bytes; SHA-256 `4962c9a4a931002a51872f0ef9dfbf541c088d8419fc671d02b3a304d213a638`.
-- **Identidad territorial:** siempre `CUT_COM`; nunca coincidencia textual del nombre.
-- **Normalización explícita:** `08301` conserva `Los Angeles` como `nombre_oficial_fuente` y usa `Los Ángeles` como presentación. El resto conserva el nombre fuente como presentación.
-- **Reproducibilidad:** `app/scripts/derive_attendance_communes.py` valida el hash fuente, EPSG:5360, nombres por código, exactamente 13 códigos únicos, geometrías válidas/no vacías y rangos de Chile antes de escribir EPSG:4326.
-- **Runtime/cache:** el proceso valida el GeoJSON y cachea por ruta el catálogo, las geometrías WGS84, las transformaciones UTM locales y las geometrías métricas.
-- **Temporales:** `.tmp_dpa_2023/` y `.tmp_wheels/` fueron eliminados. No permanece el archivo fuente de 262 MB ni wheels dentro del árbol.
+## 4. Fase activa
 
-Comunas aprobadas:
+**INVENTARIO MVP** es la continuidad activa. Este handoff no autoriza implementación. El primer gate es revisar dos inputs reales: el XLSX actualizado de Inventario y ejemplos reales de Guía de Despacho.
 
-| CUT_COM | Nombre oficial fuente | Presentación |
-| --- | --- | --- |
-| 06110 | Mostazal | Mostazal |
-| 08301 | Los Angeles | Los Ángeles |
-| 13102 | Cerrillos | Cerrillos |
-| 13103 | Cerro Navia | Cerro Navia |
-| 13107 | Huechuraba | Huechuraba |
-| 13110 | La Florida | La Florida |
-| 13112 | La Pintana | La Pintana |
-| 13117 | Lo Prado | Lo Prado |
-| 13119 | Maipú | Maipú |
-| 13121 | Pedro Aguirre Cerda | Pedro Aguirre Cerda |
-| 13301 | Colina | Colina |
-| 13404 | Paine | Paine |
-| 16301 | San Carlos | San Carlos |
+Arquitectura vigente relevante: aplicación FastAPI única, UI operativa Jinja2/static, rutas delgadas deseables, servicios para casos de uso, SQLAlchemy/PostgreSQL, Alembic lineal y autorización backend. Inventario es dueño conceptual de empresa operativa, unidades, productos, movimientos y stock; Identidad aporta el actor futuro de auditoría. Órdenes de trabajo es heredado y no debe ampliarse aquí.
 
-## 5. Dependencias y migración
+## 5. Inventario existente y brechas
 
-- [IMPLEMENTADO 4B-2B] `requirements.txt` fija `shapely==2.1.2` y `pyproj==3.7.2`; ya no se depende solo de instalaciones manuales.
-- [CONFIRMADO LOCALMENTE] Ambas importan en Python 3.14.7, la suite completa pasa y `pip check` no detecta dependencias rotas.
-- [IMPLEMENTADO 4B-2B] Revisión Alembic `20260901_08`, hija lineal de `20260831_07`; mantiene 22 tablas y amplía lugares/evaluaciones.
-- [IMPLEMENTADO 4B-2B] La revisión carga las 13 zonas comunales, migra radios preexistentes no ambiguos y agrega constraints/índices de coherencia.
-- [CONFIRMADO ONLINE 2026-09-01] `boliklor_ot_test`, configurada mediante `.env.test.local` ignorado, migró desde base vacía hasta `20260901_08`; `alembic check` informó `No new upgrade operations detected`.
-- [CONFIRMADO ONLINE 2026-09-01] El gate detectó y corrigió en la revisión candidata una inferencia ambigua de parámetros PostgreSQL durante el backfill. El primer upgrade fallido revirtió la cadena completa sin dejar esquema parcial; el segundo completó `empty → head`.
-- [CONFIRMADO ONLINE 2026-09-01] Downgrade limpio a `20260831_07` y re-upgrade funcionan. Con evaluaciones COMUNA presentes, el downgrade se rechaza deliberadamente antes de modificar esquema o datos y la base permanece en head.
-- [IMPLEMENTADO] Procedimiento operacional de backup/restore PostgreSQL documentado en `docs/operations/database-backup-restore.md`, con guardas de identidad, secretos, restore desechable y recuperación conceptual.
-- [CONFIRMADO OPERACIONAL 2026-09-02] Backup real previo a migración creado mediante `pg_dump -Fc` fuera del repositorio: `boliklor_ot_pre_4b2b_20260902_143950Z.dump`, 105041 bytes, SHA-256 `bdae960d9d7e0e96b2cede78d5df8f627723d2e67112000abc3d0f7b07c0110e`; `pg_dump` y `pg_restore --list` finalizaron con exit code `0`.
-- [CONFIRMADO OPERACIONAL 2026-09-02] Restore probado en `boliklor_ot_restore_test`: revisión `20260831_07`, 23 tablas públicas, conteos por tabla, constraints, 88 índices, 24 secuencias y 28 FKs sin huérfanos coincidieron con el origen. La base desechable se eliminó después del éxito.
-- [CONFIRMADO PRE-MIGRACIÓN 2026-09-02] Antes del gate final, `boliklor_ot` permanecía en `20260831_07`; el backup/restore se completó sin ejecutar Alembic ni modificar manualmente datos reales.
-- [CONFIRMADO MIGRACIÓN REAL 2026-09-02] `alembic upgrade head` aplicó `20260901_08` sobre `boliklor_ot` con salida `0`. `alembic current` y `heads` informan `20260901_08 (head)` y `alembic check` informa `No new upgrade operations detected`.
-- [CONFIRMADO POST-MIGRACIÓN 2026-09-02] Se preservaron los 14 IDs históricos de lugares y los conteos/IDs de Identidad, RRHH, Asistencia, Inventario y OT. Quedaron 13 geocercas COMUNA activas con CUT únicos, La Pintana única, sin duplicados comunales activos; Base y Taller continúan sin geocerca y no existían zonas RADIO históricas que reclasificar.
-- [IMPLEMENTADO, INTEGRADO Y MIGRADO REAL 4B-3B] Revisión `20260902_09`, hija lineal de `20260901_08`; agrega dos tablas, migra estados de incidencias con precheck y crea el seed global exacto de $30.000 vigente desde `2026-09-01`.
-- [VALIDADO POSTGRESQL DESECHABLE 2026-09-02] `boliklor_ot_test` aprobó `empty → 20260902_09`, `20260901_08 → 20260902_09`, downgrade/re-upgrade, mapeo histórico, paridad ORM, seed, constraints/FKs/índices, locks y concurrencia. El downgrade se rechaza antes de perder intervenciones o versiones nuevas de tarifas.
-- [CONFIRMADO MIGRACIÓN REAL 2026-09-03] `boliklor_ot` migró exclusivamente de `20260901_08` a `20260902_09` con exit code `0`. Se preservaron 2 Workers, 2 sesiones, 4 marcajes y 4 incidencias pendientes; quedaron 0 intervenciones administrativas y el único registro de tarifa es el seed global de $30.000 vigente desde `2026-09-01`.
-- [CONFIRMADO BACKUP/RESTORE 2026-09-03] El dump custom previo permanece fuera del repositorio en `C:\Users\soporte\Documents\Boliklor\Backups\PostgreSQL\boliklor_ot_preflight_4b3_20260903_161511.dump`, 108176 bytes, SHA-256 `50986961E2DD042C95309ED1EE3F0CBE304F91CA5E218DC5B4E0BA8E3B117B14`; su restore reprodujo 23 tablas sin diferencias de conteo y la copia aprobó upgrade, downgrade compatible y re-upgrade.
+### Implementado
 
-## 6. Validaciones ejecutadas hasta el 2026-09-03
+- [IMPLEMENTADO] `Empresa`: catálogo multiempresa con código/nombre únicos, estado activo y relaciones a productos/movimientos; seeds actuales `ALM` y `BOLIKLOR`, sin modelar un universo cerrado a esas dos empresas.
+- [IMPLEMENTADO] `UnidadMedida`: código único, nombre, decimales permitidos y estado activo; siete unidades seed.
+- [IMPLEMENTADO] `Producto`: empresa, SKU global único, nombre/descripción, unidades de stock/contenido/costo, factor de conversión positivo, stock mínimo no negativo, tipo/familia y estado. Alta manual e importación/corrección de catálogo desde XLSX legacy.
+- [IMPLEMENTADO] `MovimientoInventario` y `DetalleMovimientoInventario`: cabecera por empresa/fecha/número, referencia/guía/destino/comuna/observaciones; líneas con cantidad positiva y snapshots de unidades/factor/costos. Tipos permitidos por DB: `RECEPCION`, `DESPACHO`, `DEVOLUCION`, `AJUSTE_INICIAL`, `AJUSTE_POSITIVO`, `AJUSTE_NEGATIVO`.
+- [IMPLEMENTADO] Ledger técnico: el saldo se deriva sumando tipos positivos y restando tipos negativos; no existe una columna de saldo mutable como verdad paralela.
+- [IMPLEMENTADO] Recepción: formulario/carrito, validación de empresa/producto/unidades/decimales, snapshots de costo, número secuencial y commit/rollback atómico.
+- [IMPLEMENTADO] Historial y detalle de movimientos; filtros combinables por empresa, tipo, fechas, documento/referencia/guía/SKU.
+- [IMPLEMENTADO] Stock por empresa para BOLIKLOR y ALM, filtros por búsqueda/familia/estado/reposición/rango, inicialización de solo lectura y costo agregado. Dashboard muestra métricas de stock y últimos movimientos.
+- [IMPLEMENTADO] Acceso global actual `INVENTARIO_ACCESS`; por la matriz vigente ADMIN tiene acceso y JEFATURA/TRABAJADOR no lo reciben. La seguridad depende de autorización backend, no del menú.
 
-- `compileall -q app tests`: aprobado.
-- `pip check`: aprobado, `No broken requirements found`.
-- suite focalizada de Asistencia, incluida la UX administrativa: 75/75 aprobadas.
-- suite completa aislada con SQLite en memoria: 168/168 aprobadas, 0 fallas y 0 errores.
-- derivación reproducible: 13 features, hash fuente esperado y hash/tamaño final verificados.
-- tests geográficos: borde, dentro de tolerancia, fuera, zonas inactivas, RADIO+COMUNA, solapamientos, prioridad/margen/ID, identidad por código, catálogo ausente/corrupto y código desconocido.
-- tests de persistencia: no asignación, snapshot comunal, tolerancia sin incidencia, fuera de rango con incidencia y rollback seguro.
-- regresión conservada: ownership, CSRF/RBAC, GPS puntual/privacidad, mínimo de sesión, múltiples sesiones, calendario personal y administración de lugares.
-- Alembic estático/offline: head/historia aprobados y SQL de upgrade completo generado sin conexión.
-- Alembic PostgreSQL online sobre `boliklor_ot_test`: `empty → head`, paridad ORM, esquema real, constraints, FKs, índices, seeds/backfill, downgrade/re-upgrade y protección de downgrade aprobados.
-- PostgreSQL 4B-2B: RADIO/COMUNA, cuatro estados, trabajador sin asignación, selección automática/prioridad, concurrencia de comuna activa única, incidencias, múltiples sesiones, mínimo de 5 minutos y rollback por GeoJSON inválido aprobados.
-- UX administrativa: activación/desactivación ADMIN, denegación no ADMIN, CSRF, nombre real en confirmación y mensajes, éxito diferenciado, cancelación sin submit y error sin falso éxito aprobados.
-- validación manual 4B-2B en navegador: aprobada sin regresiones funcionales detectadas.
-- backup/restore operacional: `pg_dump -Fc` y catálogo aprobados; restore desechable comparado contra el origen y eliminado tras validar, sin ejecutar migraciones.
-- migración real: `20260831_07 → 20260901_08 (head)` aprobada; 23 tablas públicas, 15 lugares totales, 13 COMUNA, siete constraints y tres índices 4B-2B verificados, 28 FKs sin huérfanos y `alembic check` sin drift.
-- smoke post-migración sobre Uvicorn conectado a `boliklor_ot`: `/health` 200, `/login` 200 y `/admin/lugares` mantiene redirección 303 sin sesión. La capa de aplicación renderizó el listado real con los 15 lugares, 13 COMUNA y todos los CUT; modal/toast se verificaron estructuralmente sin mutar zonas reales.
-- 4B-3A focalizada: 88/88 tests de reglas, calendario, marcajes, geocercas y estructura aprobados.
-- 4B-3A suite completa aislada: 181/181 aprobados con `APP_ENV=test` y `AUTH_ENFORCED=false`; la primera ejecución sin ese aislamiento produjo 20 redirecciones 303 heredadas en tests de Inventario/OT y no se contabiliza como aprobación.
-- 4B-3A `python -m compileall -q app tests alembic`: aprobado; `pip check`: `No broken requirements found`; `git diff --check`: aprobado.
-- 4B-3B focalizada SQLite/PostgreSQL: 13/13 aprobadas para salida administrativa, decisiones de incidencia, tarifas y carreras concurrentes.
-- 4B-3B regresión completa de Asistencia: 101/101 aprobadas.
-- 4B-3B suite completa con `APP_ENV=test`, `AUTH_ENFORCED=false` y `TEST_DATABASE_URL` desechable: 194/194 aprobadas. La primera ejecución sin el aislamiento de autenticación produjo 20 redirecciones 303 heredadas; las otras 174 pruebas pasaron y la repetición correctamente aislada quedó verde.
-- 4B-3B Alembic/PostgreSQL: `empty → head` en esquema temporal eliminado tras validar; salto desde `20260901_08`, downgrade/re-upgrade, mapeos, seed global, tres índices de tarifa, FK compuesta de SALIDA, dos rechazos defensivos de downgrade y `alembic check` aprobados.
-- 4B-3B `python -m compileall -q app tests alembic`: aprobado; `pip check`: `No broken requirements found`; `git diff --check`: aprobado.
-- 4B-3C focalizada: 8/8 aprobadas para consultas/proyección, período/búsqueda, tarifa ausente, RBAC, CSRF, privacidad, SALIDA administrativa e incidencias desde HTTP.
-- 4B-3C regresión completa de Asistencia con `TEST_DATABASE_URL` desechable: 109/109 aprobadas, incluidas 3/3 de locks/concurrencia PostgreSQL sobre `boliklor_ot_test` en `20260902_09`.
-- 4B-3C suite completa aislada con `APP_ENV=test`, `AUTH_ENFORCED=false` y `TEST_DATABASE_URL` desechable: 202/202 aprobadas.
-- 4B-3C `python -m compileall -q app tests alembic`: aprobado; `pip check`: `No broken requirements found`; `git diff --check`: aprobado.
-- 4B-3D focalizada web/servicios: 24/24 aprobadas para tarifas, RBAC, CSRF, versionado, precedencia, conflictos, Excel conjunto/individual, privacidad y paridad.
-- 4B-3D PostgreSQL desechable: `boliklor_ot_test` confirmada en `20260902_09 (head)`; 3/3 pruebas de locks/concurrencia y unicidad de tarifas aprobadas sin usar la base real.
-- 4B-3D regresión completa de Asistencia con `TEST_DATABASE_URL` desechable: 116/116 aprobadas.
-- 4B-3D suite completa aislada con `APP_ENV=test`, `AUTH_ENFORCED=false` y `TEST_DATABASE_URL` desechable: 209/209 aprobadas.
-- 4B-3D `python -m compileall -q app tests alembic`: aprobado; `pip check`: `No broken requirements found`; `git diff --check`: aprobado.
-- gate real 4B-3 post-migración: `alembic current` y `heads` informan `20260902_09 (head)`; `alembic check` informa `No new upgrade operations detected`; 17 columnas nuevas, nueve constraints requeridos y cinco índices requeridos verificados sin duplicados, huérfanos ni incoherencias.
-- smoke backend real de solo lectura 2026-09-03: Uvicorn en loopback respondió 200 para `/health`, GET de login, trabajadores, supervisión, filtros, detalle de Worker, detalle diario y lectura de tarifa. El calendario personal renderizó 200 con sesión SQL `READ ONLY`, la tarifa efectiva fue `$30.000 GLOBAL` y el acceso HTTP sin sesión conservó redirección 303. No se ejecutó login POST ni se crearon sesiones, tarifas, SALIDAS o decisiones.
-- post-migración focalizada sobre `boliklor_ot_test`: 44/44 pruebas de baseline, reglas, administración, supervisión, tarifas y concurrencia PostgreSQL aprobadas; `compileall`, `pip check` y `git diff --check` aprobados. Ningún test destructivo apuntó a `boliklor_ot`.
+### Parcial o transitorio
 
-## 7. Riesgos y pendientes
+- [PARCIAL] Fuente de stock: si existe algún `AJUSTE_INICIAL`, todo el sistema cambia a `MODO_OPERATIVO`; mientras no exista, el stock mostrado se lee del XLSX legacy y el ledger se mantiene separado. La base real sigue en transición.
+- [PARCIAL] Costos: recepción calcula costo por presentación y valor de línea. La consulta actual obtiene un promedio de entradas positivas y valoriza stock positivo; no implementa todavía el costo promedio ponderado móvil por secuencia ni fija el costo histórico de cada despacho.
+- [PARCIAL] Inmutabilidad: no hay rutas actuales de edición/eliminación de movimientos, pero tampoco existe todavía el flujo integral de confirmación/corrección compensatoria ni auditoría de actor que materialice la regla aprobada.
+- [PARCIAL] Referencia de guía: existe `guia_despacho` como texto genérico, pero el contrato oficial SII aún no está definido con ejemplos reales.
 
-- [PENDIENTE] Política legal/de negocio de retención y acceso a GPS/datos laborales.
-- [DEUDA_TECNICA] El backup/restore manual ya está documentado y ensayado, pero no hay CI/CD, proxy/TLS, backups automáticos/copia externa, retención/RPO/RTO, monitorización ni evidencia de despliegue productivo.
-- [DEUDA_TECNICA] RBAC sigue hardcodeado; faltan rate limit, MFA/recuperación y auditoría privilegiada.
+### Previsto por estructura, pero no implementado operacionalmente
 
-## 8. Alcance confirmado de Asistencia 4B-3
+- [PREVISTO] La DB admite despacho, devolución y ajustes positivos/negativos, y el cálculo técnico conoce sus signos.
+- [PENDIENTE] No existen creación/confirmación operacional de despachos, devoluciones o ajustes; control transaccional/concurrente de stock negativo; bodegas; relación devolución-despacho; motivos estructurados; actor/auditoría; permisos granulares; exportaciones de Inventario; “Detalles y trabajos”; PDF; ni contrato documental completo de Guía de Despacho.
+- [PENDIENTE] No existen lotes, vencimientos, FIFO o FEFO; su ausencia es ahora una exclusión aprobada del MVP, no una decisión abierta inmediata.
 
-- portal ADMIN/JEFATURA;
-- listado de todos los trabajadores y búsqueda/filtro por nombre;
-- filtro por período;
-- calendario y detalle individual;
-- días trabajados;
-- jornadas pagables;
-- doble turno diferenciable;
-- incidencias;
-- exportación individual y conjunta a Excel;
-- tarifa provisional `$30.000 CLP` por jornada pagable: regla/proyección implementada en 4B-3A, persistencia global/individual versionada implementada en 4B-3B y administración web append-only implementada en 4B-3D;
-- horas extra y días extra pendientes de definición posterior.
+## 6. Decisiones funcionales aprobadas para continuidad
 
-## 9. Asistencia 4B-3A integrada en `aea9c32`
+1. [CONFIRMADO] **Fuente de verdad:** PostgreSQL + ledger será la única fuente operacional final. Excel queda para cutover controlado, conciliación, exportación, análisis e interoperabilidad. El archivo ya revisado puede estar desactualizado; revisar el XLSX actualizado antes de cutover. No ejecutar cutover todavía.
+2. [CONFIRMADO] **Bodegas:** arquitectura `EMPRESA → BODEGA → STOCK/PRODUCTOS`; una o pocas bodegas iniciales por empresa, extensible a empresas futuras. ALM y BOLIKLOR no agotan el modelo.
+3. [CONFIRMADO] **Stock negativo prohibido:** ningún despacho o ajuste negativo confirmado puede dejar saldo menor que cero; confirmación atómica y segura ante concurrencia.
+4. [CONFIRMADO] **Movimientos confirmados inmutables:** no editar ni eliminar; corregir con movimientos compensatorios auditables.
+5. [CONFIRMADO] **Despachos y Guía SII:** Boliklor no reemplaza el folio oficial; debe persistir referencia estructurada. Una futura carga PDF/imagen puede extraer y prellenar, siempre con revisión humana; no incluir OCR/extracción en la primera subfase ni confirmar automáticamente.
+6. [CONFIRMADO] **Ajustes:** `AJUSTE_POSITIVO` y `AJUSTE_NEGATIVO` con motivo estructurado, actor, timestamp, comentario/referencia y trazabilidad; permiso previsto `INVENTARIO_AJUSTAR`.
+7. [CONFIRMADO] **Devoluciones:** movimiento propio, auditable y relacionable con el despacho original; debe permitir `DESPACHADO - DEVUELTO = SALIDA/CONSUMO NETO`.
+8. [CONFIRMADO] **Costos:** costo promedio ponderado móvil. Cada despacho conserva el costo histórico aplicado al confirmarse; movimientos históricos no se recalculan con costos nuevos.
+9. [CONFIRMADO] **Exclusión de lotes:** no implementar lotes, vencimientos, FIFO ni FEFO en el Inventario MVP actual.
+10. [CONFIRMADO] **Roles/permisos:** no crear rol `BODEGA`. Mantener ADMIN/JEFATURA/TRABAJADOR y evolucionar a `INVENTARIO_VER`, `INVENTARIO_EXPORTAR`, `INVENTARIO_RECIBIR`, `INVENTARIO_DESPACHAR`, `INVENTARIO_AJUSTAR`, `INVENTARIO_VER_COSTOS`, `INVENTARIO_AUDITAR`. No asumir que JEFATURA posee todos.
+11. [CONFIRMADO] **Detalles y trabajos:** consulta express multi-producto con búsqueda/filtros/selección temporal, stock vigente, quitar/limpiar y exportar. Nunca reserva, despacha, persiste listas, crea movimientos ni cambia stock/costos/ajustes.
+12. [CONFIRMADO] **Exportaciones:** prever XLSX/PDF para inventario completo/filtrado, recepciones, despachos, devoluciones, ajustes, movimientos, historial de producto y Detalles y trabajos. Reutilizar la misma consulta/proyección del portal; no duplicar reglas de negocio en Excel.
+13. [CONFIRMADO] **Preparación BI:** persistir datos estructurados para futura analítica de stock, valorización, flujos, consumo neto, producto/empresa/bodega, costos, ajustes, actor, destinos, documentos y relación futura con OT. Power BI, data warehouse, ETL, cubos y API analítica quedan fuera del MVP.
 
-- [CONFIRMADO] referencias horarias: `DIURNO 09:00–18:00` y `NOCTURNO 19:00–05:00` del día siguiente. `SesionTrabajo.turno_id` y `fecha_operacional` permanecen como hechos y las horas originales no se alteran.
-- [IMPLEMENTADO Y TESTEADO] `attendance_rules_service.py` proyecta sesión, día y período, distingue actividad/incompleto y deriva situaciones horarias con la tolerancia configurada de 10 minutos.
-- [IMPLEMENTADO Y TESTEADO] Por fecha operacional se paga provisionalmente como máximo una jornada `DIURNO` y una `NOCTURNO`; varias sesiones del mismo turno no multiplican jornadas y ambos turnos forman un doble turno.
-- [IMPLEMENTADO Y TESTEADO] Incompletos e incidencias conservan pagabilidad provisional. Un turno sin regla aprobada falla de forma explícita para evitar cálculos silenciosos.
-- [IMPLEMENTADO Y TESTEADO] La tarifa individual versionada prevalece sobre la global vigente para cada fecha; el total provisional se deriva y no se persiste.
-- [IMPLEMENTADO Y TESTEADO] El calendario personal reutiliza la proyección común de sesión y muestra `Actividad registrada · incompleta` / `Jornada incompleta: falta SALIDA` sin convertirla en ausencia.
-- [IMPLEMENTADO EN 4B-3B] La persistencia de tarifas adapta filas ORM a `ProvisionalRateVersion` y reutiliza `resolve_effective_rate`; no existe una segunda regla de precedencia.
+## 7. Exclusiones y prohibiciones actuales
 
-## 10. Asistencia 4B-3B integrada en `aea9c32`
+- No implementar todavía Inventario MVP-A, Bodega, permisos, despachos, devoluciones, ajustes, Detalles y trabajos, exportaciones ni OCR.
+- No crear ni ejecutar migraciones; no importar/cortar Excel; no modificar stock, movimientos, configuración ni datos reales.
+- No modificar `boliklor_ot` ni `boliklor_ot_test` sin un gate y autorización explícitos.
+- No extender Órdenes de trabajo, desplegar, hacer `git add`, commit o push como parte de este handoff.
 
-- [IMPLEMENTADO Y TESTEADO] `IntervencionSalidaAdministrativa` expresa estructuralmente una SALIDA originalmente ausente y enlaza sesión, SALIDA administrativa, hora introducida, actor, motivo y timestamp. La FK compuesta exige mismo marcaje/sesión/tipo SALIDA y las unicidades impiden duplicados.
-- [IMPLEMENTADO Y TESTEADO] `complete_administrative_exit` bloquea la sesión, revalida ENTRADA/ausencia de SALIDA, exige datetime con zona, orden temporal, mínimo de cinco minutos y motivo. SALIDA, auditoría y cierre se confirman o revierten juntos; no crea GPS ni evaluación geográfica.
-- [IMPLEMENTADO Y TESTEADO] Incidencias usan `PENDIENTE/APROBADA/RECHAZADA`. `decide_attendance_incident` bloquea, permite una sola decisión final y conserva marcaje, GPS, geocerca, turno, fecha operacional y pagabilidad.
-- [IMPLEMENTADO Y TESTEADO] `TarifaProvisionalAsistencia` conserva monto `Numeric(12,0)` positivo, fecha operacional de vigencia, alcance global/Worker, origen, actor y timestamp. Los índices parciales únicos evitan dos versiones del mismo alcance/fecha; individual prevalece sobre global mediante el motor común 4B-3A.
-- [IMPLEMENTADO EN MIGRACIÓN CANDIDATA] `20260902_09` prechequea estados/coherencia, mapea `RESUELTA→APROBADA` y `DESCARTADA→RECHAZADA`, y siembra global $30.000 desde la primera fecha operacional real verificada (`2026-09-01`). El downgrade traduce estados de vuelta cuando es seguro y aborta ante intervenciones o tarifas posteriores.
-- [IMPLEMENTADO EN 4B-3C/3D] Existen rutas/UI para las acciones de supervisión y tarifas. `ASISTENCIA_SUPERVISAR` autoriza portal/exportaciones y `ADMIN_ACCESS` protege consulta y mutación de tarifas; todos los POST conservan CSRF.
+## 8. Próximos inputs necesarios
 
-## 11. Asistencia 4B-3C integrada en `72534f5`
+1. [PENDIENTE] **XLSX ORIGINAL actualizado** del responsable de Inventario. Analizar hojas, columnas, fórmulas, productos, empresas, stock, movimientos, recepciones, despachos, devoluciones, costos, reglas implícitas y diferencias con PostgreSQL. El usuario no necesita convertirlo a Markdown. Después documentar `docs/product/inventory/legacy-inventory-source.md`: estructura, reglas, mapeo Excel → PostgreSQL, datos migrables/no migrables, inconsistencias, conciliación y cutover.
+2. [PENDIENTE] **Ejemplos reales de Guía de Despacho** (imágenes/PDF/documentos) para cerrar campos, referencias y contrato estructurado del despacho.
 
-- [IMPLEMENTADO Y TESTEADO] Router separado bajo `/asistencia/supervision`, protegido por `ASISTENCIA_SUPERVISAR`; ADMIN y JEFATURA acceden, TRABAJADOR recibe 403 y el anónimo redirección segura a login.
-- [IMPLEMENTADO Y TESTEADO] El listado usa período inclusivo, búsqueda por nombre/apellido/código, máximo de 366 días y paginación de 25. Incluye Workers activos aunque no tengan actividad e inactivos cuando conservan sesiones en el período.
-- [IMPLEMENTADO Y TESTEADO] `attendance_supervision_service.py` carga Workers, sesiones, turnos, marcajes, snapshots geográficos, incidencias, intervenciones y tarifas por lotes; reutiliza la proyección 4B-3A y no ejecuta una consulta por Worker.
-- [IMPLEMENTADO Y TESTEADO] Resumen y calendario muestran días trabajados, actividad, jornadas pagables, dobles turnos, incidencias y total provisional. Los estados se expresan con texto y color; el detalle conserva turno factual, cruces de medianoche, geocerca histórica y decisión administrativa.
-- [IMPLEMENTADO Y TESTEADO] Las fechas previas a la primera tarifa muestran `Sin tarifa configurada para la fecha`; no existe fallback retroactivo y el total queda indeterminado.
-- [IMPLEMENTADO Y TESTEADO] Completar SALIDA y decidir incidencias usan los servicios transaccionales 4B-3B, actor autenticado, CSRF, mensajes seguros y respuesta 409 para estados concurrentemente finalizados. La SALIDA administrativa queda identificada y no fabrica GPS/geocerca.
-- [PRIVACIDAD VALIDADA] Las vistas no incluyen latitud ni longitud exactas; solo lugar, tipo/estado de geocerca y estado de precisión históricos.
-- [SIN CAMBIO DE ESQUEMA PROPIO] 4B-3C no añade migraciones. El head de código continúa en `20260902_09`, actualmente aplicado en `boliklor_ot` real por el gate posterior de 4B-3.
+## 9. Riesgos y documentación obsoleta
 
-## 12. Asistencia 4B-3D integrada y validada
+- [RIESGO ALTO] El stock operativo visible depende hoy de un Excel legacy potencialmente desactualizado; el único movimiento real es una recepción y no debe confundirse con el saldo total.
+- [RIESGO ALTO] El cálculo de costo actual no satisface aún el promedio ponderado móvil ni costo histórico de salida.
+- [RIESGO ALTO] Despachos/ajustes negativos aún no tienen confirmación concurrente ni prohibición operacional de saldo negativo.
+- [RIESGO MEDIO] No hay bodega ni actor/auditoría en el ledger actual; el modelo debe evolucionar mediante una nueva migración futura, nunca editando historial.
+- [RIESGO MEDIO] `INVENTARIO_ACCESS` es demasiado amplio para la matriz granular aprobada; recepción y otras mutaciones de Inventario deberán revisar CSRF además de RBAC.
+- [DEUDA_TECNICA DOCUMENTAL] `README.md` y partes de `docs/product/attendance/`, `docs/architecture/database.md`, `docs/architecture/system-overview.md` todavía presentan elementos cerrados de 4B-3 como futuros/en árbol y una cantidad anterior de revisiones/tablas. `docs/decisions/ADR-005-inventory-stock-ledger.md` y `docs/product/inventory/open-questions.md` dejan costo, stock negativo y lotes como abiertos; las decisiones de este handoff los reemplazan para la continuidad. No se editaron esos archivos para mantener este cierre limitado a `CURRENT.md`; deben alinearse antes o junto al diseño aprobado de MVP-A.
 
-- [IMPLEMENTADO Y TESTEADO] `/admin/asistencia/tarifas` muestra historial global, actor/origen y creación; permite al ADMIN crear nuevas vigencias globales sin editar/eliminar versiones previas.
-- [IMPLEMENTADO Y TESTEADO] El detalle de Worker muestra tarifa efectiva `GLOBAL`/`INDIVIDUAL`, historial exclusivo de overrides y permite nuevas versiones individuales. No copia automáticamente la tarifa global.
-- [IMPLEMENTADO Y TESTEADO] Monto entero positivo, fecha, Worker, confirmación, duplicados y campos extra se validan en backend. Los duplicados son 409 controlados; el resto de formularios inválidos es 422. CSRF faltante/inválido es 403.
-- [RBAC VALIDADO] ADMIN consulta/muta tarifas; JEFATURA consulta tarifa/total en Supervisión pero recibe 403 en rutas de tarifa; TRABAJADOR recibe 403 y anónimo redirección a login. Las exportaciones usan `ASISTENCIA_SUPERVISAR` para ADMIN/JEFATURA.
-- [IMPLEMENTADO Y TESTEADO] XLSX conjunto respeta período y búsqueda, incluye todas las filas filtradas en lotes y reproduce días trabajados, jornadas pagables, dobles turnos, incidencias y total de la proyección compartida.
-- [IMPLEMENTADO Y TESTEADO] XLSX individual contiene `Resumen` y `Detalle diario`, incluidos nocturno, incompleto, doble turno, tarifa/origen e incidencias. Una tarifa ausente se expresa como `Sin tarifa configurada` sin fallback ni total inventado.
-- [SEGURIDAD/PRIVACIDAD VALIDADA] Toda cadena se neutraliza ante prefijos de fórmula y caracteres XML de control; los nombres de archivo son constantes/seguros y los libros no contienen latitud, longitud ni coordenadas.
-- [SIN CAMBIO DE ESQUEMA PROPIO] 4B-3D no añade migraciones. El commit `ef468ec` conserva como head `20260902_09`, aplicado en `boliklor_ot_test` y, tras preflight/backup/restore aprobados, en `boliklor_ot` real.
-- [CONFIRMADO MANUALMENTE] El checklist reproducible de navegador y Excel/LibreOffice de `docs/operations/attendance-4b3d-manual-validation.md` fue aprobado antes de autorizar el gate de migración real.
+## 10. Próximo paso exacto y gate previo a implementación
 
-## 13. Punto exacto de continuidad
+**PRIMERA TAREA EN LA NUEVA VENTANA:** no generar código ni Prompt Maestro MVP-A. Recibir y revisar primero (A) el XLSX actualizado de Inventario y (B) ejemplos reales de Guía de Despacho.
 
-**Fase activa:** cierre documental de Asistencia 4B-3. Las subfases 4B-3A/3B están integradas en `aea9c32`, 4B-3C en `72534f5` y 4B-3D en `ef468ec`; todas están implementadas y testeadas, 4B-3C/3D tienen validación manual confirmada y la revisión real `20260902_09` está aplicada.
+Después, y todavía sin implementar: (1) documentar la fuente legacy; (2) definir el mapeo Excel → PostgreSQL y conciliación/cutover; (3) cerrar el contrato estructurado de despacho; (4) comprobar si la evidencia obliga a cambiar alguna decisión; (5) alinear documentación/ADR; y solo entonces preparar el Prompt Maestro INVENTARIO MVP-A para aprobación humana.
 
-**Estado de cierre:** migración real 4B-3 aprobada el 2026-09-03 después de revalidar Git, backup, identidad y prechecks. `boliklor_ot` está en `20260902_09 (head)`; estructura, seed, datos históricos, `alembic check`, smoke de lectura y 44 pruebas focalizadas quedaron verdes. Esta actualización de `CURRENT.md` permanece sin `git add`, commit o push.
-
-**Siguiente gate propuesto:** revisión humana del diff exclusivamente documental de `CURRENT.md` y, solo con autorización expresa, decidir su commit/push. No avanzar automáticamente a otra fase ni realizar mutaciones administrativas.
-
-**Prohibiciones vigentes:** no ejecutar nuevas mutaciones de esquema/datos reales fuera de un gate explícito; no incluir backups, fuentes masivas, wheels, secretos, documentos laborales ni coordenadas exactas en Git o logs/UI no autorizada.
+El gate de implementación exige decisiones y contratos documentados, diseño de Bodega y migración nueva, estrategia segura para datos existentes/cutover/rollback, transacciones concurrentes que impidan stock negativo, inmutabilidad/compensación, costo promedio móvil, auditoría/CSRF/RBAC granular y plan de pruebas aisladas. Ninguna migración ni escritura sobre base real queda autorizada por este documento.

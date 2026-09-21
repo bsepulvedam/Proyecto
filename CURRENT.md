@@ -1,106 +1,71 @@
 # Estado actual y continuidad de Boliklor
 
+*Propuesta de reemplazo del `CURRENT.md` sin comittear desde 2026-09-07. Conserva sus decisiones válidas, incorpora lo definido desde entonces (auditoría técnica, integración con el bot de Telegram, reconciliación con el inventario real). Revisar antes de reemplazar el archivo real y comittear.*
+
 Fuente compacta de continuidad. Ante diferencias prevalecen código ejecutable, configuración efectiva, migraciones y tests. Estados usados: `[IMPLEMENTADO]`, `[CONFIRMADO]`, `[PARCIAL]`, `[PREVISTO]`, `[PENDIENTE]` y `[DEUDA_TECNICA]`.
+
+**Documentos relacionados (fuente extendida):** `docs/audits/PROJECT_TECHNICAL_BASELINE.md`, `docs/audits/BOLIKLOR_TECHNICAL_AUDIT.md` (con 5 addenda), `docs/plans/active/BOLIKLOR_ROADMAP.md`, `docs/architecture/BOLIKLOR_BOT_API_DESIGN.md`.
 
 ## 1. Estado Git verificado
 
 - [CONFIRMADO 2026-09-07] Rama `main`; `HEAD` real `e4251dc0f7a1085f4f24d64e92dfc6771755df3a` (`e4251dc`, `Actualizar cierre de Asistencia 4B-3`, 2026-09-03T17:14:54-04:00).
-- [CONFIRMADO 2026-09-07] Referencia local `origin/main`: `e4251dc0f7a1085f4f24d64e92dfc6771755df3a`; divergencia `HEAD...origin/main`: 0 izquierda / 0 derecha. No se ejecutó `fetch`, por lo que esto no confirma el estado remoto más reciente.
-- [CONFIRMADO ANTES DE ESTE HANDOFF] `git status`: árbol limpio; `git diff` y `git diff --stat`: vacíos.
-- [CONFIRMADO DESPUÉS DE ESTE HANDOFF] La única modificación esperada es `CURRENT.md`. No se ejecutaron `git add`, commit, push, rebase, reset ni deploy.
+- [CONFIRMADO 2026-09-21] Se versionó por primera vez `docs/audits/PROJECT_TECHNICAL_BASELINE.md` (existía localmente pero nunca se había comiteado) junto con la auditoría técnica completa, el roadmap y el diseño de integración del bot.
+- [PENDIENTE] Confirmar hash de HEAD tras el commit que incorpora esta actualización.
 
 ## 2. Base efectiva y Alembic
 
-- [CONFIRMADO READ ONLY 2026-09-07] Configuración efectiva de `.env`: PostgreSQL, base `boliklor_ot`, usuario `postgres`, servidor PostgreSQL 18.6 x86_64 Windows. No se expuso la URL ni credenciales.
-- [CONFIRMADO READ ONLY 2026-09-07] `alembic current`: `20260902_09 (head)`; `alembic heads`: `20260902_09 (head)`.
-- [CONFIRMADO READ ONLY 2026-09-07] Inventario real: 2 empresas (`ALM`, `BOLIKLOR`), 7 unidades, 150 productos, 1 movimiento con 1 detalle; tipo existente `RECEPCION`. No existe `AJUSTE_INICIAL`, por lo que el sistema sigue en `MODO_TRANSICION`.
-- [CONFIRMADO] No se ejecutaron migraciones ni se modificó `boliklor_ot` o `boliklor_ot_test` durante este handoff.
+- [CONFIRMADO READ ONLY 2026-09-07] PostgreSQL 18.6, base `boliklor_ot`. `alembic current`/`heads`: `20260902_09 (head)`.
+- [CONFIRMADO READ ONLY 2026-09-07] Inventario real antes de Fase 0: 2 empresas (`ALM`, `BOLIKLOR`), 7 unidades, 150 productos, 1 movimiento con 1 detalle, tipo `RECEPCION`. Sin `AJUSTE_INICIAL` → sigue en `MODO_TRANSICION`.
+- [PENDIENTE — Fase 0] Agregar empresa `MASV` (Mas Vial), tabla `Bodega`, columnas `origen`/`actor_referencia` en `movimientos_inventario`, y tipo `TRANSFERENCIA_ENTRE_EMPRESAS`. Ver sección 6.
 
 ## 3. Fases cerradas: Asistencia
 
-Asistencia 4B-3 está cerrada y no es la fase activa. Sus pendientes pasan a backlog.
-
-- [IMPLEMENTADO Y CERRADO 4B-3A, `aea9c32`] Motor común de dominio para actividad, sesiones incompletas, situación horaria, jornadas pagables, doble turno, tarifa efectiva versionada y total provisional; calendario personal reutiliza la proyección.
-- [IMPLEMENTADO, MIGRADO Y CERRADO 4B-3B, `aea9c32`] SALIDA administrativa transaccional/auditable, decisiones finales de incidencias y tarifas globales/individuales append-only. Migración `20260902_09` aplicada realmente a `boliklor_ot`.
-- [IMPLEMENTADO Y CERRADO 4B-3C, `72534f5`] Supervisión ADMIN/JEFATURA bajo `/asistencia/supervision`, búsqueda, período, paginación, resumen, calendario/detalle individual y acciones auditadas, con CSRF/RBAC y sin exponer coordenadas exactas.
-- [IMPLEMENTADO Y CERRADO 4B-3D, `ef468ec`] Administración de tarifas solo ADMIN y XLSX conjunto/individual para ADMIN/JEFATURA, con paridad de proyección, neutralización de fórmulas y omisión de GPS.
-- [CONFIRMADO CIERRE, `e4251dc`] Gate real posterior: backup/restore previamente ensayado, base en `20260902_09`, `alembic check` sin drift, smoke de lectura y 44/44 pruebas focalizadas. Históricamente también quedaron verdes la suite completa aislada 209/209, la regresión de Asistencia 116/116 y las pruebas PostgreSQL de locks/concurrencia 3/3.
-- [BACKLOG ASISTENCIA] Política legal de retención/acceso GPS, fuente de planificación/horario esperado, offline/fraude, alertas, revisión completa de justificaciones, horas/días extra y remuneración definitiva. No reabrir sin decisión expresa.
+Sin cambios respecto a la versión anterior de este documento. Asistencia 4B-3 sigue cerrada; sus pendientes en backlog (política de retención GPS, planificación, offline/fraude, alertas, revisión de justificaciones, remuneración definitiva). No reabrir sin decisión expresa.
 
 ## 4. Fase activa
 
-**INVENTARIO MVP** es la continuidad activa. Este handoff no autoriza implementación. El primer gate es revisar dos inputs reales: el XLSX actualizado de Inventario y ejemplos reales de Guía de Despacho.
+**INVENTARIO MVP + integración con el bot de Telegram (N8N/Gemini)** — ambas avanzan juntas, no por separado. La fuente operacional final sigue siendo PostgreSQL + ledger; el bot deja de escribir en Google Sheets como registro final y pasa a llamar una API nueva del ERP (`/api/bot/inventario/*`, ver `BOLIKLOR_BOT_API_DESIGN.md`) que reutiliza los mismos servicios que la interfaz web.
 
-Arquitectura vigente relevante: aplicación FastAPI única, UI operativa Jinja2/static, rutas delgadas deseables, servicios para casos de uso, SQLAlchemy/PostgreSQL, Alembic lineal y autorización backend. Inventario es dueño conceptual de empresa operativa, unidades, productos, movimientos y stock; Identidad aporta el actor futuro de auditoría. Órdenes de trabajo es heredado y no debe ampliarse aquí.
+El primer gate ya no es "esperar el XLSX actualizado" — **ya se recibió y se analizó** (`Inventario_IA_-_PRUEBAS.xlsx`, verificado directamente). Sigue pendiente un segundo input: ejemplos reales de Guía de Despacho (ver sección 8).
 
 ## 5. Inventario existente y brechas
 
-### Implementado
+Se mantiene todo lo `[IMPLEMENTADO]`/`[PARCIAL]`/`[PENDIENTE]` de la versión anterior de este documento (catálogo, recepción, ledger técnico, stock por empresa). Se agrega:
 
-- [IMPLEMENTADO] `Empresa`: catálogo multiempresa con código/nombre únicos, estado activo y relaciones a productos/movimientos; seeds actuales `ALM` y `BOLIKLOR`, sin modelar un universo cerrado a esas dos empresas.
-- [IMPLEMENTADO] `UnidadMedida`: código único, nombre, decimales permitidos y estado activo; siete unidades seed.
-- [IMPLEMENTADO] `Producto`: empresa, SKU global único, nombre/descripción, unidades de stock/contenido/costo, factor de conversión positivo, stock mínimo no negativo, tipo/familia y estado. Alta manual e importación/corrección de catálogo desde XLSX legacy.
-- [IMPLEMENTADO] `MovimientoInventario` y `DetalleMovimientoInventario`: cabecera por empresa/fecha/número, referencia/guía/destino/comuna/observaciones; líneas con cantidad positiva y snapshots de unidades/factor/costos. Tipos permitidos por DB: `RECEPCION`, `DESPACHO`, `DEVOLUCION`, `AJUSTE_INICIAL`, `AJUSTE_POSITIVO`, `AJUSTE_NEGATIVO`.
-- [IMPLEMENTADO] Ledger técnico: el saldo se deriva sumando tipos positivos y restando tipos negativos; no existe una columna de saldo mutable como verdad paralela.
-- [IMPLEMENTADO] Recepción: formulario/carrito, validación de empresa/producto/unidades/decimales, snapshots de costo, número secuencial y commit/rollback atómico.
-- [IMPLEMENTADO] Historial y detalle de movimientos; filtros combinables por empresa, tipo, fechas, documento/referencia/guía/SKU.
-- [IMPLEMENTADO] Stock por empresa para BOLIKLOR y ALM, filtros por búsqueda/familia/estado/reposición/rango, inicialización de solo lectura y costo agregado. Dashboard muestra métricas de stock y últimos movimientos.
-- [IMPLEMENTADO] Acceso global actual `INVENTARIO_ACCESS`; por la matriz vigente ADMIN tiene acceso y JEFATURA/TRABAJADOR no lo reciben. La seguridad depende de autorización backend, no del menú.
-
-### Parcial o transitorio
-
-- [PARCIAL] Fuente de stock: si existe algún `AJUSTE_INICIAL`, todo el sistema cambia a `MODO_OPERATIVO`; mientras no exista, el stock mostrado se lee del XLSX legacy y el ledger se mantiene separado. La base real sigue en transición.
-- [PARCIAL] Costos: recepción calcula costo por presentación y valor de línea. La consulta actual obtiene un promedio de entradas positivas y valoriza stock positivo; no implementa todavía el costo promedio ponderado móvil por secuencia ni fija el costo histórico de cada despacho.
-- [PARCIAL] Inmutabilidad: no hay rutas actuales de edición/eliminación de movimientos, pero tampoco existe todavía el flujo integral de confirmación/corrección compensatoria ni auditoría de actor que materialice la regla aprobada.
-- [PARCIAL] Referencia de guía: existe `guia_despacho` como texto genérico, pero el contrato oficial SII aún no está definido con ejemplos reales.
-
-### Previsto por estructura, pero no implementado operacionalmente
-
-- [PREVISTO] La DB admite despacho, devolución y ajustes positivos/negativos, y el cálculo técnico conoce sus signos.
-- [PENDIENTE] No existen creación/confirmación operacional de despachos, devoluciones o ajustes; control transaccional/concurrente de stock negativo; bodegas; relación devolución-despacho; motivos estructurados; actor/auditoría; permisos granulares; exportaciones de Inventario; “Detalles y trabajos”; PDF; ni contrato documental completo de Guía de Despacho.
-- [PENDIENTE] No existen lotes, vencimientos, FIFO o FEFO; su ausencia es ahora una exclusión aprobada del MVP, no una decisión abierta inmediata.
+- [CONFIRMADO 2026-09-21] Existe una tercera empresa real, **Mas Vial** (`MASV`, prefijo de SKU `MASV-*`), con 34 filas de stock activo en el inventario real del bot. No estaba contemplada — se agrega en Fase 0.
+- [CONFIRMADO 2026-09-21] Costo fijo `= 1` para el 100% de los productos de ALM y Mas Vial en el inventario real — son bodegas/empresas sin costeo real, **definitivo**, no temporal. Sólo Boliklor tiene costeo real (promedio ponderado móvil).
+- [DEUDA_TECNICA, confirmada en código el 2026-09-21] `/productos` lee stock legacy incondicionalmente sin consultar `inventory_mode`; otras pantallas sí usan el ledger. Resolver en Fase 0 como parte de la carga inicial.
+- [CONFIRMADO 2026-09-21] Dashboard exponiendo KPIs/movimientos de Inventario a JEFATURA sin `INVENTARIO_ACCESS` es **intencional** (antes se trataba como posible bug). No modificar ese comportamiento.
 
 ## 6. Decisiones funcionales aprobadas para continuidad
 
-1. [CONFIRMADO] **Fuente de verdad:** PostgreSQL + ledger será la única fuente operacional final. Excel queda para cutover controlado, conciliación, exportación, análisis e interoperabilidad. El archivo ya revisado puede estar desactualizado; revisar el XLSX actualizado antes de cutover. No ejecutar cutover todavía.
-2. [CONFIRMADO] **Bodegas:** arquitectura `EMPRESA → BODEGA → STOCK/PRODUCTOS`; una o pocas bodegas iniciales por empresa, extensible a empresas futuras. ALM y BOLIKLOR no agotan el modelo.
-3. [CONFIRMADO] **Stock negativo prohibido:** ningún despacho o ajuste negativo confirmado puede dejar saldo menor que cero; confirmación atómica y segura ante concurrencia.
-4. [CONFIRMADO] **Movimientos confirmados inmutables:** no editar ni eliminar; corregir con movimientos compensatorios auditables.
-5. [CONFIRMADO] **Despachos y Guía SII:** Boliklor no reemplaza el folio oficial; debe persistir referencia estructurada. Una futura carga PDF/imagen puede extraer y prellenar, siempre con revisión humana; no incluir OCR/extracción en la primera subfase ni confirmar automáticamente.
-6. [CONFIRMADO] **Ajustes:** `AJUSTE_POSITIVO` y `AJUSTE_NEGATIVO` con motivo estructurado, actor, timestamp, comentario/referencia y trazabilidad; permiso previsto `INVENTARIO_AJUSTAR`.
-7. [CONFIRMADO] **Devoluciones:** movimiento propio, auditable y relacionable con el despacho original; debe permitir `DESPACHADO - DEVUELTO = SALIDA/CONSUMO NETO`.
-8. [CONFIRMADO] **Costos:** costo promedio ponderado móvil. Cada despacho conserva el costo histórico aplicado al confirmarse; movimientos históricos no se recalculan con costos nuevos.
-9. [CONFIRMADO] **Exclusión de lotes:** no implementar lotes, vencimientos, FIFO ni FEFO en el Inventario MVP actual.
-10. [CONFIRMADO] **Roles/permisos:** no crear rol `BODEGA`. Mantener ADMIN/JEFATURA/TRABAJADOR y evolucionar a `INVENTARIO_VER`, `INVENTARIO_EXPORTAR`, `INVENTARIO_RECIBIR`, `INVENTARIO_DESPACHAR`, `INVENTARIO_AJUSTAR`, `INVENTARIO_VER_COSTOS`, `INVENTARIO_AUDITAR`. No asumir que JEFATURA posee todos.
-11. [CONFIRMADO] **Detalles y trabajos:** consulta express multi-producto con búsqueda/filtros/selección temporal, stock vigente, quitar/limpiar y exportar. Nunca reserva, despacha, persiste listas, crea movimientos ni cambia stock/costos/ajustes.
-12. [CONFIRMADO] **Exportaciones:** prever XLSX/PDF para inventario completo/filtrado, recepciones, despachos, devoluciones, ajustes, movimientos, historial de producto y Detalles y trabajos. Reutilizar la misma consulta/proyección del portal; no duplicar reglas de negocio en Excel.
-13. [CONFIRMADO] **Preparación BI:** persistir datos estructurados para futura analítica de stock, valorización, flujos, consumo neto, producto/empresa/bodega, costos, ajustes, actor, destinos, documentos y relación futura con OT. Power BI, data warehouse, ETL, cubos y API analítica quedan fuera del MVP.
+Se mantienen íntegras las decisiones 1, 2 (revisada, ver abajo), 4 a 13 de la versión anterior de este documento (fuente de verdad PostgreSQL, movimientos inmutables, Guía SII, ajustes con motivo/actor, devoluciones relacionables, costo promedio ponderado móvil con costo histórico por despacho, exclusión de lotes/FIFO/FEFO, roles/permisos granulares, "Detalles y trabajos", exportaciones, preparación BI). Se actualiza:
+
+3'. **[CONFIRMADO — REVISADO 2026-09-21] Stock negativo prohibido, con resolución explícita para transferencias:** se mantiene la prohibición original (ningún despacho/ajuste confirmado puede dejar saldo menor que cero). El caso real que generaba negativos (préstamos de material entre Boliklor/ALM/Mas Vial) se resuelve con un tipo de movimiento nuevo, **`TRANSFERENCIA_ENTRE_EMPRESAS`**: salida en la empresa que presta + entrada en la que recibe, en una sola transacción atómica. El caso ya existente (`BOL-12`, saldo -40) se reconcilia en la carga inicial como una transferencia retroactiva, no como un ajuste suelto.
+
+10'. **[CONFIRMADO — REVISADO 2026-09-21] Roles/permisos:** se ratifica **no crear rol `BODEGA`** (el bot de Telegram usa ese nombre internamente; se mapea a los permisos granulares aprobados aquí — `INVENTARIO_VER` + `INVENTARIO_RECIBIR` + `INVENTARIO_DESPACHAR` por defecto — no a un rol nuevo del ERP).
+
+14. **[CONFIRMADO 2026-09-21] Jerarquía Empresa → Bodega:** se construye la tabla `Bodega` (FK a `Empresa`) ya en Fase 0, no se pospone. Seed inicial: una bodega principal por empresa (Boliklor, ALM, Mas Vial), dejando espacio para múltiples bodegas por empresa sin migración estructural futura.
+
+15. **[CONFIRMADO 2026-09-21] Integración con bot externo:** el bot de Telegram (N8N + Gemini) es la vía principal de consultas/actualizaciones rápidas de Inventario para el personal autorizado. Se autentica con una API key de servicio, con alcance limitado a `/api/bot/inventario/*`. El ERP nunca duplica lógica de negocio para el bot — el bot llama los mismos servicios que ya usa la interfaz web. Ver `BOLIKLOR_BOT_API_DESIGN.md` para el contrato completo, incluyendo las fases (lectura+recepción primero; despacho/devolución/ajuste sólo cuando el ERP los tenga operacionales).
+
+16. **[CONFIRMADO 2026-09-21] Trazabilidad de origen:** todo movimiento de inventario registra `origen` (`ERP_WEB` | `BOT_TELEGRAM`) y `actor_referencia` (quién lo pidió), mapeando directo desde la columna `Usuario / Origen` que el bot ya mantiene.
 
 ## 7. Exclusiones y prohibiciones actuales
 
-- No implementar todavía Inventario MVP-A, Bodega, permisos, despachos, devoluciones, ajustes, Detalles y trabajos, exportaciones ni OCR.
-- No crear ni ejecutar migraciones; no importar/cortar Excel; no modificar stock, movimientos, configuración ni datos reales.
-- No modificar `boliklor_ot` ni `boliklor_ot_test` sin un gate y autorización explícitos.
-- No extender Órdenes de trabajo, desplegar, hacer `git add`, commit o push como parte de este handoff.
+Sin cambios respecto a la versión anterior: no implementar aún despacho/devolución/ajuste operacional completo (eso es Fase 3, no Fase 0), no ejecutar migraciones contra `boliklor_ot`/`boliklor_ot_test` sin gate explícito, no ampliar OT, no hacer deploy sin autorización. La carga inicial de datos de Fase 0 SÍ está autorizada — es la tarea explícita de esta fase, con las decisiones ya tomadas como marco.
 
 ## 8. Próximos inputs necesarios
 
-1. [PENDIENTE] **XLSX ORIGINAL actualizado** del responsable de Inventario. Analizar hojas, columnas, fórmulas, productos, empresas, stock, movimientos, recepciones, despachos, devoluciones, costos, reglas implícitas y diferencias con PostgreSQL. El usuario no necesita convertirlo a Markdown. Después documentar `docs/product/inventory/legacy-inventory-source.md`: estructura, reglas, mapeo Excel → PostgreSQL, datos migrables/no migrables, inconsistencias, conciliación y cutover.
-2. [PENDIENTE] **Ejemplos reales de Guía de Despacho** (imágenes/PDF/documentos) para cerrar campos, referencias y contrato estructurado del despacho.
+1. [RESUELTO 2026-09-21] ~~XLSX actualizado de Inventario~~ — recibido y analizado (`Inventario_IA_-_PRUEBAS.xlsx`).
+2. [PENDIENTE] **Ejemplos reales de Guía de Despacho** (imágenes/PDF) — sigue bloqueando únicamente el contrato estructurado de despacho de Fase 3, no bloquea Fase 0 ni Fase 1.
 
 ## 9. Riesgos y documentación obsoleta
 
-- [RIESGO ALTO] El stock operativo visible depende hoy de un Excel legacy potencialmente desactualizado; el único movimiento real es una recepción y no debe confundirse con el saldo total.
-- [RIESGO ALTO] El cálculo de costo actual no satisface aún el promedio ponderado móvil ni costo histórico de salida.
-- [RIESGO ALTO] Despachos/ajustes negativos aún no tienen confirmación concurrente ni prohibición operacional de saldo negativo.
-- [RIESGO MEDIO] No hay bodega ni actor/auditoría en el ledger actual; el modelo debe evolucionar mediante una nueva migración futura, nunca editando historial.
-- [RIESGO MEDIO] `INVENTARIO_ACCESS` es demasiado amplio para la matriz granular aprobada; recepción y otras mutaciones de Inventario deberán revisar CSRF además de RBAC.
-- [DEUDA_TECNICA DOCUMENTAL] `README.md` y partes de `docs/product/attendance/`, `docs/architecture/database.md`, `docs/architecture/system-overview.md` todavía presentan elementos cerrados de 4B-3 como futuros/en árbol y una cantidad anterior de revisiones/tablas. `docs/decisions/ADR-005-inventory-stock-ledger.md` y `docs/product/inventory/open-questions.md` dejan costo, stock negativo y lotes como abiertos; las decisiones de este handoff los reemplazan para la continuidad. No se editaron esos archivos para mantener este cierre limitado a `CURRENT.md`; deben alinearse antes o junto al diseño aprobado de MVP-A.
+Se mantienen los riesgos de la versión anterior. Se agrega:
+- [RIESGO MEDIO, mitigado por decisión] El stock negativo activo hoy (`BOL-12 = -40`) ya no es un riesgo abierto — tiene resolución de diseño (`TRANSFERENCIA_ENTRE_EMPRESAS`) y se reconcilia en Fase 0.
+- [DEUDA_TECNICA DOCUMENTAL] `docs/decisions/ADR-005-inventory-stock-ledger.md` sigue sin actualizar formalmente; debe reflejar esta reconciliación (transferencias, no negativos sueltos) antes de marcarse ACCEPTED.
 
-## 10. Próximo paso exacto y gate previo a implementación
+## 10. Próximo paso exacto
 
-**PRIMERA TAREA EN LA NUEVA VENTANA:** no generar código ni Prompt Maestro MVP-A. Recibir y revisar primero (A) el XLSX actualizado de Inventario y (B) ejemplos reales de Guía de Despacho.
-
-Después, y todavía sin implementar: (1) documentar la fuente legacy; (2) definir el mapeo Excel → PostgreSQL y conciliación/cutover; (3) cerrar el contrato estructurado de despacho; (4) comprobar si la evidencia obliga a cambiar alguna decisión; (5) alinear documentación/ADR; y solo entonces preparar el Prompt Maestro INVENTARIO MVP-A para aprobación humana.
-
-El gate de implementación exige decisiones y contratos documentados, diseño de Bodega y migración nueva, estrategia segura para datos existentes/cutover/rollback, transacciones concurrentes que impidan stock negativo, inmutabilidad/compensación, costo promedio móvil, auditoría/CSRF/RBAC granular y plan de pruebas aisladas. Ninguna migración ni escritura sobre base real queda autorizada por este documento.
+Ejecutar **Fase 0** de `BOLIKLOR_ROADMAP.md`: migración (empresa MASV, tabla Bodega + seeds, columnas `origen`/`actor_referencia`, tipo `TRANSFERENCIA_ENTRE_EMPRESAS`), servicio de carga inicial desde el inventario real del bot, y reconciliación de `BOL-12`. El subagente `database-postgresql-alembic` y `inventory-legacy-cutover` (en `.claude/agents/`) están preparados con este contexto. Ningún dato real se modifica sin ejecutar primero contra un entorno desechable.

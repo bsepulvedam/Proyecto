@@ -1,5 +1,7 @@
 from fastapi import Depends, FastAPI
 from fastapi.staticfiles import StaticFiles
+from starlette.requests import Request
+from starlette.responses import Response
 
 from app.api.ordenes import router as ordenes_router
 from app.api.productos import router as productos_api_router
@@ -16,8 +18,26 @@ from app.core.config import validate_security_config
 from app.core.security import require_module, require_platform_access
 
 
+_SECURITY_HEADERS = {
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "X-XSS-Protection": "1; mode=block",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+}
+
+
 validate_security_config()
 app = FastAPI(title="Boliklor OT API", version="0.1.0")
+
+
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response: Response = await call_next(request)
+    for header, value in _SECURITY_HEADERS.items():
+        response.headers.setdefault(header, value)
+    return response
+
+
 app.include_router(auth_router)
 app.include_router(admin_router, dependencies=[Depends(require_module("ADMIN_ACCESS"))])
 app.include_router(attendance_rates_router, dependencies=[Depends(require_module("ADMIN_ACCESS"))])

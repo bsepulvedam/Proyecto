@@ -1,5 +1,6 @@
 import hmac
 import secrets
+import time
 from pathlib import Path
 from urllib.parse import parse_qs
 
@@ -18,6 +19,28 @@ from app.services.auth_service import CSRF_COOKIE, LOGIN_CSRF_COOKIE, SESSION_CO
 
 router = APIRouter(tags=["autenticacion"])
 templates = Jinja2Templates(directory=Path(__file__).resolve().parents[1] / "templates")
+
+_LOGIN_RATE_LIMIT_MAX_ATTEMPTS = 10
+_LOGIN_RATE_LIMIT_WINDOW_SECONDS = 300
+_failed_login_attempts: dict[str, list[float]] = {}
+
+
+def _client_ip(request: Request) -> str:
+    return request.client.host if request.client else "unknown"
+
+
+def _is_rate_limited(ip: str) -> bool:
+    cutoff = time.monotonic() - _LOGIN_RATE_LIMIT_WINDOW_SECONDS
+    attempts = [t for t in _failed_login_attempts.get(ip, []) if t > cutoff]
+    if attempts:
+        _failed_login_attempts[ip] = attempts
+    else:
+        _failed_login_attempts.pop(ip, None)
+    return len(attempts) >= _LOGIN_RATE_LIMIT_MAX_ATTEMPTS
+
+
+def _record_failed_login(ip: str) -> None:
+    _failed_login_attempts.setdefault(ip, []).append(time.monotonic())
 
 
 def _set_cookie(response, name: str, value: str, max_age: int):
@@ -41,16 +64,22 @@ def login_form(request: Request, db: Session = Depends(get_db)):
 
 @router.post("/login", response_class=HTMLResponse, name="login_submit")
 async def login_submit(request: Request, db: Session = Depends(get_db)):
+    ip = _client_ip(request)
+    if _is_rate_limited(ip):
+        return _login_page(request, "Demasiados intentos fallidos. Intenta nuevamente en unos minutos.", status.HTTP_429_TOO_MANY_REQUESTS)
     form = parse_qs((await request.body()).decode("utf-8"), keep_blank_values=True)
     form_token = form.get("csrf_token", [""])[0]
     if not form_token or not hmac.compare_digest(form_token, request.cookies.get(LOGIN_CSRF_COOKIE, "")):
+        _record_failed_login(ip)
         return _login_page(request, "La sesión del formulario expiró. Intenta nuevamente.", 403)
     try:
         data = LoginData(username=form.get("username", [""])[0], password=form.get("password", [""])[0])
     except ValueError:
+        _record_failed_login(ip)
         return _login_page(request, "Usuario o contraseña incorrectos.", 401)
     user = authenticate_user(db, data.username, data.password)
     if user is None:
+        _record_failed_login(ip)
         return _login_page(request, "Usuario o contraseña incorrectos.", 401)
     credentials = create_session(db, user)
     response = RedirectResponse("/cambiar-password" if user.debe_cambiar_password else landing_path(user), status_code=status.HTTP_303_SEE_OTHER)

@@ -1,4 +1,5 @@
 import asyncio
+import os
 import unittest
 from decimal import Decimal
 from pathlib import Path
@@ -6,6 +7,12 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from pydantic import ValidationError
+
+os.environ.setdefault("APP_ENV", "test")
+if os.environ.get("APP_ENV", "").lower() != "production":
+    os.environ["AUTH_ENFORCED"] = "false"
+    os.environ.setdefault("SESSION_SECRET", "test-secret-only-not-production")
+    os.environ.setdefault("COOKIE_SECURE", "false")
 
 from app.main import app
 from app.models.empresa import Empresa

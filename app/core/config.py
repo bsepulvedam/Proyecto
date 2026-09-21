@@ -54,9 +54,38 @@ def session_secret() -> str:
     return _DEVELOPMENT_SESSION_SECRET
 
 
+_MIN_PRODUCTION_SESSION_SECRET_LENGTH = 32
+
+
 def validate_security_config() -> None:
-    if auth_enforced():
-        session_secret()
+    """Valida configuración de seguridad al arranque.
+
+    El hardening de longitud mínima de SESSION_SECRET y COOKIE_SECURE
+    obligatorio sólo aplica cuando APP_ENV=production. En staging (y en
+    development/test) no se exige a propósito: staging puede usar
+    configuración relajada para pruebas previas a producción, esto es
+    intencional y no un olvido.
+
+    Se exige explícitamente la variable de entorno APP_ENV=production
+    (no el default implícito de app_environment()) porque el checklist
+    de despliegue productivo ya obliga a declarar APP_ENV=production; así
+    un entorno de test que no configura APP_ENV no queda atrapado por
+    este hardening.
+    """
+    if not auth_enforced():
+        return
+    secret = session_secret()
+    if os.getenv("APP_ENV", "").strip().lower() != "production":
+        return
+    if len(secret) < _MIN_PRODUCTION_SESSION_SECRET_LENGTH:
+        raise RuntimeError(
+            f"SESSION_SECRET debe tener al menos {_MIN_PRODUCTION_SESSION_SECRET_LENGTH} "
+            "caracteres cuando APP_ENV=production"
+        )
+    if not cookie_secure():
+        raise RuntimeError(
+            "COOKIE_SECURE debe ser true cuando APP_ENV=production"
+        )
 
 
 def session_hours() -> int:

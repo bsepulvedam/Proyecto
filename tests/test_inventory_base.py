@@ -125,7 +125,7 @@ class InventoryBaseTests(unittest.TestCase):
     def test_empty_products_page(self) -> None:
         with (
             patch("app.web.products.listar_productos", return_value=[]) as list_mock,
-            patch("app.web.products._legacy_stock_values", return_value={}),
+            patch("app.web.products.stock_values_by_sku", return_value={}),
             patch(
                 "app.services.orden_trabajo_service.numero_ot_sequence.next_value"
             ) as next_value_mock,
@@ -154,7 +154,7 @@ class InventoryBaseTests(unittest.TestCase):
         )
         with (
             patch("app.web.products.listar_productos", return_value=[product]),
-            patch("app.web.products._legacy_stock_values", return_value={"BOL-8": Decimal("0")}),
+            patch("app.web.products.stock_values_by_sku", return_value={"BOL-8": Decimal("0")}),
         ):
             status, body = asyncio.run(asgi_get("/productos"))
         self.assertEqual(status, 200)
@@ -176,7 +176,7 @@ class InventoryBaseTests(unittest.TestCase):
         ]
         with (
             patch("app.web.products.listar_productos", return_value=products),
-            patch("app.web.products._legacy_stock_values", return_value={sku: Decimal("1") for sku in ("BOL-10", "BOL-2", "BOL-1")}),
+            patch("app.web.products.stock_values_by_sku", return_value={sku: Decimal("1") for sku in ("BOL-10", "BOL-2", "BOL-1")}),
         ):
             status, body = asyncio.run(asgi_get("/productos"))
         self.assertEqual(status, 200)
@@ -197,7 +197,7 @@ class InventoryBaseTests(unittest.TestCase):
         ]
         with (
             patch("app.web.products.listar_productos", return_value=products),
-            patch("app.web.products._legacy_stock_values", return_value={sku: Decimal("1") for sku in ("BOL-1", "BOL-2", "ALM-1")}),
+            patch("app.web.products.stock_values_by_sku", return_value={sku: Decimal("1") for sku in ("BOL-1", "BOL-2", "ALM-1")}),
         ):
             status, body = asyncio.run(asgi_get("/productos?familia=DEMARCACION&empresa=BOLIKLOR"))
         self.assertEqual(status, 200)
@@ -213,7 +213,7 @@ class InventoryBaseTests(unittest.TestCase):
         ]
         with (
             patch("app.web.products.listar_productos", return_value=products),
-            patch("app.web.products._legacy_stock_values", return_value={}),
+            patch("app.web.products.stock_values_by_sku", return_value={}),
         ):
             _, boliklor_body = asyncio.run(asgi_get("/productos?empresa=BOLIKLOR"))
             _, alm_body = asyncio.run(asgi_get("/productos?empresa=ALM"))
@@ -229,7 +229,7 @@ class InventoryBaseTests(unittest.TestCase):
         ]
         with (
             patch("app.web.products.listar_productos", return_value=products),
-            patch("app.web.products._legacy_stock_values", return_value={}),
+            patch("app.web.products.stock_values_by_sku", return_value={}),
         ):
             _, all_body = asyncio.run(asgi_get("/productos"))
         self.assertIn(b"BOL-1", all_body)
@@ -246,7 +246,7 @@ class InventoryBaseTests(unittest.TestCase):
         values = {"BOL-1": Decimal("12"), "BOL-2": Decimal("0"), "ALM-1": Decimal("5")}
         with (
             patch("app.web.products.listar_productos", return_value=products),
-            patch("app.web.products._legacy_stock_values", return_value=values),
+            patch("app.web.products.stock_values_by_sku", return_value=values),
         ):
             _, body = asyncio.run(asgi_get(
                 "/productos?empresa=BOLIKLOR&familia=DEMARCACION&estado_stock=SIN%20STOCK&q=BOL-2"
@@ -266,7 +266,7 @@ class InventoryBaseTests(unittest.TestCase):
         values = {"BOL-1": Decimal("5"), "BOL-2": Decimal("10"), "BOL-3": Decimal("20")}
         with (
             patch("app.web.products.listar_productos", return_value=products),
-            patch("app.web.products._legacy_stock_values", return_value=values),
+            patch("app.web.products.stock_values_by_sku", return_value=values),
         ):
             _, from_body = asyncio.run(asgi_get("/productos?stock_desde=10"))
             _, to_body = asyncio.run(asgi_get("/productos?stock_hasta=10"))
@@ -285,7 +285,7 @@ class InventoryBaseTests(unittest.TestCase):
         products = [self.catalog_product("BOL-1")]
         with (
             patch("app.web.products.listar_productos", return_value=products),
-            patch("app.web.products._legacy_stock_values", return_value={"BOL-1": Decimal("5")}),
+            patch("app.web.products.stock_values_by_sku", return_value={"BOL-1": Decimal("5")}),
         ):
             _, invalid_body = asyncio.run(asgi_get("/productos?stock_desde=abc"))
             _, inverted_body = asyncio.run(asgi_get("/productos?stock_desde=20&stock_hasta=10"))

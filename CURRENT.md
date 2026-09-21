@@ -65,6 +65,13 @@ Sin cambios respecto a la versión anterior: no implementar aún despacho/devolu
 Se mantienen los riesgos de la versión anterior. Se agrega:
 - [RIESGO MEDIO, mitigado por decisión] El stock negativo activo hoy (`BOL-12 = -40`) ya no es un riesgo abierto — tiene resolución de diseño (`TRANSFERENCIA_ENTRE_EMPRESAS`) y se reconcilia en Fase 0.
 - [DEUDA_TECNICA DOCUMENTAL] `docs/decisions/ADR-005-inventory-stock-ledger.md` sigue sin actualizar formalmente; debe reflejar esta reconciliación (transferencias, no negativos sueltos) antes de marcarse ACCEPTED.
+- [DEUDA_TECNICA, confirmada 2026-09-21] tests/test_work_orders_web.py y
+  tests/test_inventory_base.py no configuran AUTH_ENFORCED/SESSION_SECRET
+  en setUp — todas sus requests reciben 303 de redirect a /login en vez del
+  código esperado. Son 20 fallos pre-existentes en main que no tienen relación
+  con la Tarea 2. El fix sigue el patrón de test_identity_auth.py líneas 92-93.
+  No se corrige en Fase 0 para no mezclar alcances — queda como Tarea 5
+  (testing-quality).
 
 ## 10. Próximo paso exacto
 

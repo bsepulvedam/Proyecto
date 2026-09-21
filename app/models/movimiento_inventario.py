@@ -11,12 +11,19 @@ class MovimientoInventario(Base):
     __tablename__ = "movimientos_inventario"
     __table_args__ = (
         UniqueConstraint("numero_documento", name="uq_movimientos_inventario_numero_documento"),
-        CheckConstraint("tipo IN ('RECEPCION','DESPACHO','DEVOLUCION','AJUSTE_INICIAL','AJUSTE_POSITIVO','AJUSTE_NEGATIVO')", name="ck_movimientos_inventario_tipo"),
+        CheckConstraint(
+            "tipo IN ('RECEPCION','DESPACHO','DEVOLUCION','AJUSTE_INICIAL','AJUSTE_POSITIVO','AJUSTE_NEGATIVO','TRANSFERENCIA_ENTRE_EMPRESAS')",
+            name="ck_movimientos_inventario_tipo",
+        ),
+        CheckConstraint("origen IN ('ERP_WEB','BOT_TELEGRAM')", name="ck_movimientos_inventario_origen"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     tipo: Mapped[str] = mapped_column(String(30), nullable=False, index=True)
     empresa_id: Mapped[int] = mapped_column(ForeignKey("empresas.id", ondelete="RESTRICT"), nullable=False, index=True)
+    bodega_id: Mapped[int | None] = mapped_column(
+        ForeignKey("bodegas.id", ondelete="RESTRICT"), index=True
+    )
     fecha: Mapped[date] = mapped_column(Date, nullable=False, index=True)
     numero_documento: Mapped[str] = mapped_column(String(30), nullable=False)
     guia_despacho: Mapped[str | None] = mapped_column(String(120))
@@ -24,9 +31,14 @@ class MovimientoInventario(Base):
     entregado_a: Mapped[str | None] = mapped_column(String(200))
     comuna: Mapped[str | None] = mapped_column(String(120))
     observaciones: Mapped[str | None] = mapped_column(Text)
+    # Trazabilidad de quién/qué originó el movimiento (ERP web vs bot de Telegram);
+    # sin esto un movimiento del bot es indistinguible de uno creado desde la interfaz web.
+    origen: Mapped[str] = mapped_column(String(30), nullable=False, default="ERP_WEB", server_default="ERP_WEB")
+    actor_referencia: Mapped[str | None] = mapped_column(String(200))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
     empresa: Mapped["Empresa"] = relationship(back_populates="movimientos_inventario")
+    bodega: Mapped["Bodega | None"] = relationship(back_populates="movimientos_inventario")
     detalles: Mapped[list["DetalleMovimientoInventario"]] = relationship(back_populates="movimiento", cascade="all, delete-orphan", passive_deletes=True)
 
     @property
@@ -62,3 +74,4 @@ class DetalleMovimientoInventario(Base):
 
 from app.models.empresa import Empresa  # noqa: E402,F401
 from app.models.producto import Producto  # noqa: E402,F401
+from app.models.bodega import Bodega  # noqa: E402,F401

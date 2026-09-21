@@ -64,6 +64,19 @@ def inventory_stock_rows(db: Session) -> tuple[str, list[InventoryStockRow]]:
     return mode, rows
 
 
+def stock_values_by_sku(db: Session) -> dict[str, Decimal]:
+    """Stock mostrado por SKU, usando la misma fuente que ``/inventario/stock/*``.
+
+    Existían dos fuentes divergentes para el mismo dato (INV-001): esta pantalla
+    y ``/productos`` leían el legacy de forma incondicional y por separado, sin
+    respetar ``inventory_mode``. Aquí delegamos a ``inventory_stock_rows`` para
+    que cualquier consumidor de stock por SKU comparta una única decisión de
+    fuente (legacy vs ledger) para una empresa dada.
+    """
+    _, rows = inventory_stock_rows(db)
+    return {row.product.sku: row.displayed_stock for row in rows}
+
+
 def transactional_inventory_values(db: Session) -> dict[str, Decimal]:
     stocks = calculate_stock_from_movements(db)
     averages = calculate_weighted_average_cost(db)

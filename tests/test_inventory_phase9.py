@@ -98,6 +98,33 @@ class InventoryPhase9Tests(unittest.TestCase):
         self.assertEqual(bol.displayed_stock, Decimal("0"))
         self.assertEqual(bol.movement_stock, Decimal("3.000"))
 
+    def test_stock_values_by_sku_matches_inventory_stock_rows_in_operational_mode(self):
+        # INV-001: /productos y /inventario/stock/* deben compartir la misma
+        # fuente de stock para una empresa ya migrada al ledger.
+        from app.services.inventory_stock_service import stock_values_by_sku
+
+        self._movement("AJUSTE_INICIAL", self.bol, self.bol_product, 4, "MOV-000001")
+        self._movement("AJUSTE_INICIAL", self.alm, self.alm_product, 7, "MOV-000002")
+        _, rows = inventory_stock_rows(self.db)
+        expected = {row.product.sku: row.displayed_stock for row in rows}
+        self.assertEqual(stock_values_by_sku(self.db), expected)
+        self.assertEqual(expected["BOL-1"], Decimal("4.000"))
+
+    def test_stock_values_by_sku_matches_inventory_stock_rows_in_transition_mode(self):
+        # Mismo gate que el test anterior, pero en modo transición (legacy), donde
+        # antes de esta tarea /productos ignoraba inventory_mode por completo.
+        from app.services.inventory_stock_service import stock_values_by_sku
+
+        self._movement("RECEPCION", self.bol, self.bol_product, 3, "MOV-000001")
+        with patch(
+            "app.services.inventory_stock_service._legacy_values",
+            return_value={"BOL-1": Decimal("47"), "ALM-1": Decimal("0")},
+        ):
+            _, rows = inventory_stock_rows(self.db)
+            expected = {row.product.sku: row.displayed_stock for row in rows}
+            self.assertEqual(stock_values_by_sku(self.db), expected)
+        self.assertEqual(expected["BOL-1"], Decimal("47"))
+
     def test_stock_pages_filter_each_company_and_combined_criteria(self):
         from app.services.inventory_stock_service import InventoryStockRow
         bol_row = InventoryStockRow(self.bol_product, Decimal("5"), Decimal("0"), Decimal("5"), MODE_TRANSITION)

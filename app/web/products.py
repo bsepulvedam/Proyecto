@@ -29,6 +29,7 @@ from app.services.product_import_service import (
 from app.services.product_import_correction_service import (
     analyze_product_corrections,
 )
+from app.services.inventory_stock_service import stock_values_by_sku
 
 
 TEMPLATES_DIR = Path(__file__).resolve().parents[1] / "templates"
@@ -97,19 +98,6 @@ async def create_product(request: Request, db: Session = Depends(get_db)):
     return templates.TemplateResponse(request=request, name="products/new_success.html", context=_new_product_context(db, product=product), status_code=201)
 
 
-def _legacy_stock_values(db: Session, products: list) -> dict[str, Decimal]:
-    """Cantidad transitoria del Excel; reemplazable por movimientos_stock."""
-    try:
-        report = analyze_product_corrections(
-            source_path=_source_path(),
-            products=products,
-            units=listar_unidades(db),
-        )
-    except (ProductImportError, OSError):
-        return {}
-    return {row.sku: row.stock_actual for row in report.rows}
-
-
 def _stock_state(stock: Decimal) -> str:
     return "EN STOCK" if stock > 0 else "SIN STOCK"
 
@@ -126,7 +114,7 @@ def _parse_stock_limit(value: str) -> Decimal | None:
 @router.get("/productos", response_class=HTMLResponse, name="products")
 def products(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
     all_products = listar_productos(db)
-    stock_values = _legacy_stock_values(db, all_products)
+    stock_values = stock_values_by_sku(db)
     stock_states = {sku: _stock_state(value) for sku, value in stock_values.items()}
     selected_company = request.query_params.get("empresa", "").strip().upper()
     selected_family = request.query_params.get("familia", "").strip().upper()

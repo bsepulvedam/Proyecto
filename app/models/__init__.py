@@ -3,6 +3,7 @@ from app.models.orden_trabajo import OrdenTrabajo
 from app.models.producto import Producto
 from app.models.producto_ot import ProductoOT
 from app.models.unidad_medida import UnidadMedida
+from app.models.bodega import Bodega
 from app.models.movimiento_inventario import MovimientoInventario, DetalleMovimientoInventario
 from app.models.identity import Rol, SesionUsuario, Trabajador, Usuario, UsuarioRol
 from app.models.attendance import (
@@ -20,4 +21,4 @@ from app.models.attendance import (
     Turno,
 )
 
-__all__ = ["Empresa", "OrdenTrabajo", "Producto", "ProductoOT", "UnidadMedida", "MovimientoInventario", "DetalleMovimientoInventario", "Usuario", "Trabajador", "Rol", "UsuarioRol", "SesionUsuario", "LugarTrabajo", "AsignacionTrabajadorLugar", "Turno", "JustificacionInasistencia", "SesionTrabajo", "MarcajeAsistencia", "EvidenciaGPSMarcaje", "EvaluacionGeograficaMarcaje", "IncidenciaAsistencia", "IntervencionSalidaAdministrativa", "TarifaProvisionalAsistencia", "CorreccionMarcaje"]
+__all__ = ["Empresa", "OrdenTrabajo", "Producto", "ProductoOT", "UnidadMedida", "Bodega", "MovimientoInventario", "DetalleMovimientoInventario", "Usuario", "Trabajador", "Rol", "UsuarioRol", "SesionUsuario", "LugarTrabajo", "AsignacionTrabajadorLugar", "Turno", "JustificacionInasistencia", "SesionTrabajo", "MarcajeAsistencia", "EvidenciaGPSMarcaje", "EvaluacionGeograficaMarcaje", "IncidenciaAsistencia", "IntervencionSalidaAdministrativa", "TarifaProvisionalAsistencia", "CorreccionMarcaje"]

@@ -56,7 +56,7 @@ flowchart LR
 | --- | --- | --- |
 | Migración: nueva empresa | `Empresa(codigo='MASV', nombre='Mas Vial')` | Addendum 3/4 |
 | Migración: campos de trazabilidad | `movimientos_inventario.origen` (`ERP_WEB`\|`BOT_TELEGRAM`, default `ERP_WEB`) y `actor_referencia` (nullable) | `BOLIKLOR_BOT_API_DESIGN.md` §3 |
-| Redactar ADR-011 | Stock negativo permitido con observación obligatoria (supersede parcial de ADR-005) | Addendum 4 |
+| Redactar ADR-011 | Stock negativo PROHIBIDO; el caso que antes generaba negativos se resuelve con `TRANSFERENCIA_ENTRE_EMPRESAS` (salida+entrada atómica entre empresas). Corrección 2026-09-21: la versión anterior de esta fila ("stock negativo permitido con observación obligatoria") fue un error de redacción — contradecía la decisión ya confirmada en `CURRENT.md` §6.3' y nunca estuvo vigente. | Addendum 4 |
 | Redactar ADR-012 | Costo fijo = 1 definitivo para ALM/Mas Vial | Addendum 4 |
 | Servicio de carga inicial / reconciliación | Lee `Maestro de Productos` + `Stock Consolidado` + `Registro de Movimientos` en su formato real (no el legacy de `product_import_service.py`) y carga/concilia contra Postgres. Éste es el "cruce de datos" — ya no es SYNC-001 en abstracto, es una tarea concreta con esquema conocido | Addendum 2 (SYNC-001), Addendum 3 |
 | Validación post-carga | `/productos` y `/inventario/stock/*` deben mostrar los mismos números que el Excel, incluyendo `BOL-12 = -40` | — |

@@ -13,7 +13,8 @@ Fuente compacta de continuidad. Ante diferencias prevalecen código ejecutable, 
 
 ## 2. Base efectiva y Alembic
 
-- [CONFIRMADO 2026-09-21] PostgreSQL 18.6, base `boliklor_ot`. `alembic current`/`heads`: `20260921_10 (head)` — migración de Fase 0 (`20260921_10_inventario_fase0_fundacion`) aplicada contra producción, probada dos veces (`upgrade`/`downgrade`) contra bases desechables antes de aplicarse.
+- [CONFIRMADO 2026-09-21] PostgreSQL 18.6, base `boliklor_ot`. Migración de Fase 0 (`20260921_10_inventario_fase0_fundacion`) aplicada contra producción, probada dos veces (`upgrade`/`downgrade`) contra bases desechables antes de aplicarse.
+- [CONFIRMADO 2026-09-22] `alembic current`/`heads`: `20260922_11 (head)` — migración `20260922_11_idempotencia_bot` (tabla `claves_idempotencia_bot` para `Idempotency-Key` de la API del bot, Fase 1 tarea 2) aplicada contra `boliklor_ot`. Probada contra base desechable antes de aplicarse: `upgrade`/`downgrade` limpios sin filas, y el guard de downgrade verificado explícitamente (rechaza si hay claves registradas, sin dejar estado intermedio). Tabla vacía tras aplicar; datos preexistentes verificados sin cambios (3 empresas, 206 productos, 263 movimientos, 3 bodegas).
 - [CONFIRMADO 2026-09-21] Inventario real tras Fase 0 (Tareas 1, 2, 3, 4): 3 empresas (`ALM`, `BOLIKLOR`, `MASV`), 3 bodegas `PRINCIPAL` (una por empresa), 206 productos (150 previos + 56 nuevos de la carga), 263 movimientos (1 previo + 261 del `Registro de Movimientos` real + 1 `AJUSTE_POSITIVO` de corrección de `BOL-12`). Sigue en `MODO_TRANSICION` — ningún movimiento cargado es `AJUSTE_INICIAL`, así que el switch a `MODO_OPERATIVO` no ocurrió (ver punto abierto INV-002 en sección 9).
 - [CONFIRMADO READ ONLY 2026-09-07, histórico] Inventario real antes de Fase 0: 2 empresas (`ALM`, `BOLIKLOR`), 7 unidades, 150 productos, 1 movimiento con 1 detalle, tipo `RECEPCION`.
 
@@ -94,3 +95,10 @@ Se mantienen los riesgos de la versión anterior. Se agrega:
 3. Confirmar el estado real de los archivos modificados en paralelo (`app/core/config.py`, `app/main.py`, `tests/test_inventory_base.py`, `tests/test_work_orders_web.py`) antes de asumir que el hallazgo de aislamiento de tests sigue vigente tal cual se documentó.
 
 Con eso resuelto, sigue **Fase 1 — API del bot (solo lectura + recepción)** según `BOLIKLOR_ROADMAP.md`. El subagente `database-postgresql-alembic` y `inventory-legacy-cutover` (en `.claude/agents/`) siguen preparados con este contexto para lo que falte de Fase 0.
+
+**[CONFIRMADO 2026-09-22] Fase 1 ya arrancó en paralelo al backlog pendiente de Fase 0** (decisión del usuario, no bloqueada por lo anterior). Avance según diseño de `BOLIKLOR_BOT_API_DESIGN.md`:
+1. [IMPLEMENTADO] Mecanismo de API key de servicio: `app/core/service_auth.py` (`require_service_key`, digest SHA-256, deniega por defecto), router `app/api/bot_inventario.py` montado en `app/main.py` fuera de `require_platform_access`, config `BOT_SERVICE_KEY_HASH` con validación de formato al arranque, script `app/scripts/generate_bot_service_key.py`.
+2. [IMPLEMENTADO] `create_receipt` extendido con `origen_bot: OrigenMovimientoBot | None = None` (schema nuevo en `app/schemas/bot_inventario.py`), retrocompatible — la web sigue llamándolo con dos argumentos. Modelo/migración `20260922_11_idempotencia_bot` (tabla `claves_idempotencia_bot`) aplicados contra `boliklor_ot`, sin código todavía que la use.
+3. [PENDIENTE] Los 3 endpoints GET (`/productos`, `/stock/{empresa}`, `/movimientos`) — decisión ya tomada: `/stock/{empresa}` debe devolver `stock_ledger` + `stock_legacy` + el modo vigente, no un solo número, mientras la base siga en `MODO_TRANSICION`.
+4. [PENDIENTE] `POST /recepciones` con idempotencia (usa la tabla de la tarea 2) — decisión ya tomada: una sola API key para todo el bot, `actor_referencia` viene del campo `solicitado_por` del payload.
+5. [PENDIENTE] Tests de los 4 endpoints (auth rechazada, idempotencia, recepción real end-to-end).

@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.models.movimiento_inventario import DetalleMovimientoInventario, MovimientoInventario
 from app.models.producto import Producto
+from app.schemas.bot_inventario import OrigenMovimientoBot
 from app.schemas.movimiento_inventario import RecepcionCreate
 
 logger = logging.getLogger(__name__)
@@ -48,7 +49,17 @@ def calculate_receipt_cost(product: Producto, quantity: Decimal, unit_cost: Deci
     return presentation_cost, (quantity * presentation_cost).quantize(Decimal("0.01"))
 
 
-def create_receipt(db: Session, data: RecepcionCreate) -> MovimientoInventario:
+def create_receipt(
+    db: Session, data: RecepcionCreate, origen_bot: OrigenMovimientoBot | None = None
+) -> MovimientoInventario:
+    """Crea una recepción. ``origen_bot`` es exclusivo de la API del bot.
+
+    La web sigue llamando ``create_receipt(db, data)`` sin este tercer
+    argumento -- por defecto equivale a ``OrigenMovimientoBot()``, es decir
+    ``origen="ERP_WEB"`` y ``actor_referencia=None``, el mismo comportamiento
+    que ya tenía este servicio antes de la Fase 1 de la API del bot.
+    """
+    origen_bot = origen_bot or OrigenMovimientoBot()
     try:
         if not data.lineas:
             raise InventoryMovementError("La recepción debe incluir al menos un producto.")
@@ -61,6 +72,7 @@ def create_receipt(db: Session, data: RecepcionCreate) -> MovimientoInventario:
             numero_documento=_next_movement_number(db),
             guia_despacho=data.guia_despacho or None,
             referencia=data.referencia or None, observaciones=data.observaciones or None,
+            origen=origen_bot.origen, actor_referencia=origen_bot.actor_referencia,
         )
         for index, line in enumerate(data.lineas, start=1):
             product = products[line.producto_id]

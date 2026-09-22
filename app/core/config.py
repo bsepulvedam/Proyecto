@@ -54,7 +54,37 @@ def session_secret() -> str:
     return _DEVELOPMENT_SESSION_SECRET
 
 
+def bot_service_key_hash() -> str:
+    """Digest SHA-256 (hex) de la API key de servicio del bot de Telegram.
+
+    Vacío significa API del bot deshabilitada: se deniega por defecto en todos
+    los entornos. El token en claro nunca se guarda ni se versiona aquí — se
+    genera una vez con ``python -m app.scripts.generate_bot_service_key`` y
+    vive como variable de entorno del lado de N8N.
+    """
+    return os.getenv("BOT_SERVICE_KEY_HASH", "").strip().lower()
+
+
 _MIN_PRODUCTION_SESSION_SECRET_LENGTH = 32
+_SHA256_HEX_PATTERN = re.compile(r"[0-9a-f]{64}")
+
+
+def _validate_bot_service_key_hash() -> None:
+    """Detecta el error de configurar el token en claro en vez de su digest.
+
+    Sin este chequeo la confusión falla cerrada pero en silencio (el digest del
+    token recibido nunca coincidiría con el token en claro almacenado), dejando
+    además el secreto escrito en el ``.env`` del servidor.
+    """
+    configured = bot_service_key_hash()
+    if not configured:
+        return
+    if _SHA256_HEX_PATTERN.fullmatch(configured) is None:
+        raise RuntimeError(
+            "BOT_SERVICE_KEY_HASH debe ser un digest SHA-256 en hexadecimal (64 caracteres). "
+            "Si configuraste el token en claro, genera el par correcto con: "
+            "python -m app.scripts.generate_bot_service_key"
+        )
 
 
 def validate_security_config() -> None:
@@ -71,7 +101,12 @@ def validate_security_config() -> None:
     de despliegue productivo ya obliga a declarar APP_ENV=production; así
     un entorno de test que no configura APP_ENV no queda atrapado por
     este hardening.
+
+    El formato de BOT_SERVICE_KEY_HASH sí se valida en todos los entornos: una
+    key mal configurada es un error de operación en cualquier parte, y sólo se
+    revisa cuando la variable está presente.
     """
+    _validate_bot_service_key_hash()
     if not auth_enforced():
         return
     secret = session_secret()

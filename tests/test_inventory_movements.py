@@ -3,6 +3,7 @@ from datetime import date
 from decimal import Decimal
 from types import SimpleNamespace
 
+from pydantic import ValidationError
 from sqlalchemy import create_engine, func, select
 from sqlalchemy.orm import Session
 
@@ -11,6 +12,7 @@ from app.models.empresa import Empresa
 from app.models.movimiento_inventario import DetalleMovimientoInventario, MovimientoInventario
 from app.models.producto import Producto
 from app.models.unidad_medida import UnidadMedida
+from app.schemas.bot_inventario import OrigenMovimientoBot
 from app.schemas.movimiento_inventario import LineaRecepcionCreate, RecepcionCreate
 from app.services.inventario_movimiento_service import (
     InventoryMovementError, calculate_receipt_cost, calculate_stock_from_movements,
@@ -101,6 +103,27 @@ class InventoryMovementTests(unittest.TestCase):
         alm_results = search_products(q="PRODUCTO", empresa_id=self.alm_id, db=self.db)
         self.assertEqual({item["sku"] for item in bol_results}, {"BOL-1", "BOL-8"})
         self.assertEqual({item["sku"] for item in alm_results}, {"ALM-1"})
+
+    def test_create_receipt_without_origen_bot_defaults_to_erp_web(self):
+        movement = create_receipt(self.db, self.receipt([self.line(self.bol1, 5, 1000)]))
+        self.assertEqual(movement.origen, "ERP_WEB")
+        self.assertIsNone(movement.actor_referencia)
+
+    def test_create_receipt_accepts_bot_origin_and_actor(self):
+        origen_bot = OrigenMovimientoBot(
+            origen="BOT_TELEGRAM", actor_referencia="Juan Pérez (Telegram id 5839201)"
+        )
+        movement = create_receipt(self.db, self.receipt([self.line(self.bol1, 5, 1000)]), origen_bot)
+        self.assertEqual(movement.origen, "BOT_TELEGRAM")
+        self.assertEqual(movement.actor_referencia, "Juan Pérez (Telegram id 5839201)")
+
+    def test_origen_movimiento_bot_rejects_unknown_origen(self):
+        with self.assertRaises(ValidationError):
+            OrigenMovimientoBot(origen="OTRO_SISTEMA")
+
+    def test_origen_movimiento_bot_enforces_actor_referencia_max_length(self):
+        with self.assertRaises(ValidationError):
+            OrigenMovimientoBot(actor_referencia="x" * 201)
 
 
 if __name__ == "__main__": unittest.main()

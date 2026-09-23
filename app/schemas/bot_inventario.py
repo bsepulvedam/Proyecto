@@ -7,6 +7,8 @@ movimiento no es algo que un formulario web deba poder declarar por sí mismo
 nunca el payload que ya valida la web.
 """
 
+from datetime import date
+from decimal import Decimal
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -28,3 +30,29 @@ class OrigenMovimientoBot(BaseModel):
 
     origen: Literal["ERP_WEB", "BOT_TELEGRAM"] = "ERP_WEB"
     actor_referencia: str | None = Field(default=None, max_length=200)
+
+
+class LineaRecepcionBotCreate(BaseModel):
+    """Línea de recepción tal como la conoce el bot: por SKU, no por producto_id."""
+
+    sku: str = Field(min_length=1, max_length=100)
+    cantidad_presentaciones: Decimal = Field(gt=0)
+    costo_unitario: Decimal = Field(gt=0)
+    observacion_linea: str | None = None
+
+
+class RecepcionBotCreate(BaseModel):
+    """Payload de ``POST /api/bot/inventario/recepciones`` (§7 del diseño).
+
+    ``empresa_codigo`` y ``sku`` en vez de ``empresa_id``/``producto_id``: el
+    bot conoce productos y empresas por su código de negocio, no por id
+    interno. El router los resuelve antes de delegar en ``create_receipt``.
+    """
+
+    empresa_codigo: str = Field(min_length=1, max_length=50)
+    fecha: date
+    guia_despacho: str | None = None
+    referencia: str | None = None
+    observaciones: str | None = None
+    lineas: list[LineaRecepcionBotCreate] = Field(min_length=1)
+    solicitado_por: str = Field(min_length=1, max_length=200)

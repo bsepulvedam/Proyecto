@@ -35,3 +35,18 @@ class DespachoCreate(BaseModel):
     referencia: str | None = None
     observaciones: str | None = None
     lineas: list[LineaDespachoCreate] = Field(min_length=1)
+
+
+class LineaDevolucionCreate(BaseModel):
+    producto_id: int
+    cantidad_presentaciones: Decimal = Field(gt=0)
+    observacion_linea: str | None = None
+
+
+class DevolucionCreate(BaseModel):
+    empresa_id: int
+    fecha: date
+    guia_despacho: str | None = None
+    referencia: str | None = None
+    observaciones: str | None = None
+    lineas: list[LineaDevolucionCreate] = Field(min_length=1)

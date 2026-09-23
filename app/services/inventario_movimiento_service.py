@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session, joinedload, selectinload
 from app.models.movimiento_inventario import DetalleMovimientoInventario, MovimientoInventario
 from app.models.producto import Producto
 from app.schemas.bot_inventario import OrigenMovimientoBot
-from app.schemas.movimiento_inventario import DespachoCreate, RecepcionCreate
+from app.schemas.movimiento_inventario import DespachoCreate, DevolucionCreate, RecepcionCreate
 
 logger = logging.getLogger(__name__)
 movimiento_sequence = Sequence("movimiento_inventario_seq")
@@ -205,6 +205,59 @@ def create_dispatch(
     except Exception:
         db.rollback()
         logger.exception("No fue posible crear el despacho")
+        raise
+
+
+def create_return(
+    db: Session, data: DevolucionCreate, origen_bot: OrigenMovimientoBot | None = None
+) -> MovimientoInventario:
+    """Crea una devolución. Suma stock -- no valida stock disponible.
+
+    Simétrico a ``create_dispatch`` pero sin ``_lock_products_for_dispatch``
+    ni ``_stock_disponible``: una devolución no puede dejar saldo negativo,
+    así que no hay nada que bloquear ni validar antes de escribir. El
+    contrato de ``origen_bot`` es el mismo que en recepción/despacho.
+    """
+    origen_bot = origen_bot or OrigenMovimientoBot()
+    try:
+        if not data.lineas:
+            raise InventoryMovementError("La devolución debe incluir al menos un producto.")
+        ids = {line.producto_id for line in data.lineas}
+        products = _load_products(db, ids)
+        if len(products) != len(ids):
+            raise InventoryMovementError("Uno o más productos ya no existen.")
+        movement = MovimientoInventario(
+            tipo="DEVOLUCION", empresa_id=data.empresa_id, fecha=data.fecha,
+            numero_documento=_next_movement_number(db),
+            guia_despacho=data.guia_despacho or None,
+            referencia=data.referencia or None, observaciones=data.observaciones or None,
+            origen=origen_bot.origen, actor_referencia=origen_bot.actor_referencia,
+        )
+        for index, line in enumerate(data.lineas, start=1):
+            product = products[line.producto_id]
+            if product.empresa_id != data.empresa_id:
+                raise InventoryMovementError(f"La línea {index} pertenece a otra empresa.")
+            quantity = line.cantidad_presentaciones
+            if not product.unidad_stock.permite_decimales and quantity != quantity.to_integral_value():
+                raise InventoryMovementError(f"{product.sku} no permite cantidades decimales en {product.unidad_stock.codigo}.")
+            movement.detalles.append(DetalleMovimientoInventario(
+                producto_id=product.id, cantidad_presentaciones=quantity,
+                unidad_presentacion_snapshot=product.unidad_stock.codigo,
+                factor_conversion_snapshot=product.factor_conversion,
+                unidad_contenido_snapshot=product.unidad_contenido.codigo if product.unidad_contenido else None,
+                unidad_costo_snapshot=product.unidad_costo.codigo if product.unidad_costo else None,
+                observacion_linea=line.observacion_linea or None,
+            ))
+        db.add(movement)
+        db.commit()
+        return get_movement(db, movement.id) or movement
+    except InventoryMovementError as exc:
+        db.rollback()
+        logger.warning("Devolución rechazada: %s", exc)
+        raise
+    except Exception:
+        db.rollback()
+        logger.exception("No fue posible crear la devolución")
         raise
 
 

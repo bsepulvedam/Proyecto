@@ -3,13 +3,13 @@ from collections import defaultdict
 from datetime import date
 from decimal import Decimal
 
-from sqlalchemy import Sequence, func, select
+from sqlalchemy import Sequence, case, func, select
 from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.models.movimiento_inventario import DetalleMovimientoInventario, MovimientoInventario
 from app.models.producto import Producto
 from app.schemas.bot_inventario import OrigenMovimientoBot
-from app.schemas.movimiento_inventario import RecepcionCreate
+from app.schemas.movimiento_inventario import DespachoCreate, RecepcionCreate
 
 logger = logging.getLogger(__name__)
 movimiento_sequence = Sequence("movimiento_inventario_seq")
@@ -101,6 +101,110 @@ def create_receipt(
     except Exception:
         db.rollback()
         logger.exception("No fue posible crear la recepción")
+        raise
+
+
+def _stock_disponible(db: Session, empresa_id: int, producto_ids: set[int]) -> dict[int, Decimal]:
+    """Stock actual por producto, acotado a ``producto_ids`` (agregación SQL).
+
+    A diferencia de ``calculate_stock_from_movements`` (que recorre todo el
+    ledger para construir el stock de todas las empresas/productos), esta
+    consulta solo agrega lo necesario para validar un despacho puntual.
+    """
+    if not producto_ids:
+        return {}
+    sign = case(
+        (MovimientoInventario.tipo.in_(POSITIVE_TYPES), 1),
+        (MovimientoInventario.tipo.in_(NEGATIVE_TYPES), -1),
+        else_=0,
+    )
+    query = (
+        select(DetalleMovimientoInventario.producto_id, func.sum(sign * DetalleMovimientoInventario.cantidad_presentaciones))
+        .join(MovimientoInventario, MovimientoInventario.id == DetalleMovimientoInventario.movimiento_id)
+        .where(MovimientoInventario.empresa_id == empresa_id, DetalleMovimientoInventario.producto_id.in_(producto_ids))
+        .group_by(DetalleMovimientoInventario.producto_id)
+    )
+    return {producto_id: total or Decimal("0") for producto_id, total in db.execute(query).all()}
+
+
+def _lock_products_for_dispatch(db: Session, empresa_id: int, producto_ids: set[int]) -> None:
+    """Serializa despachos concurrentes sobre el mismo (empresa, producto).
+
+    No hay tabla de saldo mutable que bloquear con ``SELECT ... FOR UPDATE``
+    (ADR-005: el ledger de movimientos es la fuente de verdad, un saldo
+    mutable único fue rechazado explícitamente como alternativa). En su
+    lugar se usa un advisory lock de Postgres por producto, liberado
+    automáticamente al terminar la transacción (commit o rollback). En
+    SQLite (tests) no hay lock real -- tampoco hay concurrencia real ahí.
+    """
+    if db.get_bind().dialect.name != "postgresql":
+        return
+    for producto_id in sorted(producto_ids):
+        db.execute(select(func.pg_advisory_xact_lock(empresa_id, producto_id)))
+
+
+def create_dispatch(
+    db: Session, data: DespachoCreate, origen_bot: OrigenMovimientoBot | None = None
+) -> MovimientoInventario:
+    """Crea un despacho. Rechaza cualquier línea que deje saldo negativo.
+
+    ``origen_bot`` sigue el mismo contrato que ``create_receipt``: por
+    defecto ``OrigenMovimientoBot()`` (``origen="ERP_WEB"``), pensado para
+    que la futura API del bot (Fase 4 del roadmap) reutilice este mismo
+    servicio sin duplicar lógica de negocio.
+    """
+    origen_bot = origen_bot or OrigenMovimientoBot()
+    try:
+        if not data.lineas:
+            raise InventoryMovementError("El despacho debe incluir al menos un producto.")
+        ids = {line.producto_id for line in data.lineas}
+        products = _load_products(db, ids)
+        if len(products) != len(ids):
+            raise InventoryMovementError("Uno o más productos ya no existen.")
+        for index, line in enumerate(data.lineas, start=1):
+            if products[line.producto_id].empresa_id != data.empresa_id:
+                raise InventoryMovementError(f"La línea {index} pertenece a otra empresa.")
+
+        _lock_products_for_dispatch(db, data.empresa_id, ids)
+        available = _stock_disponible(db, data.empresa_id, ids)
+        for index, line in enumerate(data.lineas, start=1):
+            product = products[line.producto_id]
+            quantity = line.cantidad_presentaciones
+            if not product.unidad_stock.permite_decimales and quantity != quantity.to_integral_value():
+                raise InventoryMovementError(f"{product.sku} no permite cantidades decimales en {product.unidad_stock.codigo}.")
+            remaining = available.get(product.id, Decimal("0")) - quantity
+            if remaining < 0:
+                raise InventoryMovementError(f"{product.sku} no tiene stock suficiente para despachar {quantity}.")
+            available[product.id] = remaining
+
+        movement = MovimientoInventario(
+            tipo="DESPACHO", empresa_id=data.empresa_id, fecha=data.fecha,
+            numero_documento=_next_movement_number(db),
+            guia_despacho=data.guia_despacho or None,
+            entregado_a=data.entregado_a or None, comuna=data.comuna or None,
+            referencia=data.referencia or None, observaciones=data.observaciones or None,
+            origen=origen_bot.origen, actor_referencia=origen_bot.actor_referencia,
+        )
+        for line in data.lineas:
+            product = products[line.producto_id]
+            movement.detalles.append(DetalleMovimientoInventario(
+                producto_id=product.id, cantidad_presentaciones=line.cantidad_presentaciones,
+                unidad_presentacion_snapshot=product.unidad_stock.codigo,
+                factor_conversion_snapshot=product.factor_conversion,
+                unidad_contenido_snapshot=product.unidad_contenido.codigo if product.unidad_contenido else None,
+                unidad_costo_snapshot=product.unidad_costo.codigo if product.unidad_costo else None,
+                observacion_linea=line.observacion_linea or None,
+            ))
+        db.add(movement)
+        db.commit()
+        return get_movement(db, movement.id) or movement
+    except InventoryMovementError as exc:
+        db.rollback()
+        logger.warning("Despacho rechazado: %s", exc)
+        raise
+    except Exception:
+        db.rollback()
+        logger.exception("No fue posible crear el despacho")
         raise
 
 

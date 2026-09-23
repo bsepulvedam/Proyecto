@@ -24,7 +24,7 @@
         <a class="sidebar-link{% if active_page == 'inventory' %} active{% endif %}" href="#"><i class="bi bi-boxes"></i><span>Inventario</span></a>
         <div class="sidebar-subnav" aria-label="Opciones de inventario">
           <a class="sidebar-sublink{% if active_page == 'inventory_receipt' %} active{% endif %}" href="{{ url_for('inventory_receipt') }}">Recepción</a>
-          <a class="sidebar-sublink" href="#">Despacho</a>
+          <a class="sidebar-sublink{% if active_page == 'inventory_dispatch' %} active{% endif %}" href="{{ url_for('inventory_dispatch') }}">Despacho</a>
           <a class="sidebar-sublink{% if active_page == 'inventory_stock_boliklor' %} active{% endif %}" href="{{ url_for('inventory_stock_boliklor') }}">Stock Boliklor</a>
           <a class="sidebar-sublink{% if active_page == 'inventory_stock_alm' %} active{% endif %}" href="{{ url_for('inventory_stock_alm') }}">Stock ALM</a>
           <a class="sidebar-sublink" href="#">Devoluciones</a>

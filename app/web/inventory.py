@@ -10,9 +10,11 @@ from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from app.database.session import get_db
-from app.schemas.movimiento_inventario import LineaRecepcionCreate, RecepcionCreate
+from app.schemas.movimiento_inventario import DespachoCreate, LineaDespachoCreate, LineaRecepcionCreate, RecepcionCreate
 from app.services.inventario_catalogo_service import listar_empresas, product_natural_key
-from app.services.inventario_movimiento_service import InventoryMovementError, create_receipt, get_movement, list_movements
+from app.services.inventario_movimiento_service import (
+    InventoryMovementError, create_dispatch, create_receipt, get_movement, list_movements,
+)
 from app.services.inventory_stock_service import MODE_TRANSITION, inventory_stock_rows, transactional_inventory_values
 
 router = APIRouter(prefix="/inventario", tags=["web-inventario"])
@@ -97,6 +99,59 @@ async def receipt_create(request: Request, db: Session = Depends(get_db)):
     ), status_code=status.HTTP_201_CREATED)
 
 
+def _dispatch_from_form(form) -> DespachoCreate:
+    product_ids, quantities = form.get("producto_id", []), form.get("cantidad", [])
+    if not product_ids:
+        raise InventoryMovementError("Agrega al menos un producto al carrito.")
+    lines = []
+    for index, product_id in enumerate(product_ids):
+        try:
+            lines.append(LineaDespachoCreate(
+                producto_id=int(product_id), cantidad_presentaciones=Decimal(quantities[index].replace(",", ".")),
+            ))
+        except (ValueError, InvalidOperation, IndexError, ValidationError) as exc:
+            raise InventoryMovementError(f"Revisa la cantidad de la línea {index + 1}.") from exc
+    try:
+        return DespachoCreate(
+            empresa_id=int(_first(form, "empresa_id")), fecha=date.today(),
+            guia_despacho=_first(form, "guia_despacho") or None,
+            entregado_a=_first(form, "entregado_a") or None,
+            comuna=_first(form, "comuna") or None,
+            referencia=_first(form, "referencia") or None,
+            observaciones=_first(form, "observaciones") or None, lineas=lines,
+        )
+    except (ValueError, ValidationError) as exc:
+        raise InventoryMovementError("Selecciona una empresa válida.") from exc
+
+
+@router.get("/despacho", response_class=HTMLResponse, name="inventory_dispatch")
+def dispatch_form(request: Request, db: Session = Depends(get_db)):
+    return templates.TemplateResponse(request=request, name="inventory/dispatch.html", context=context(
+        empresas=listar_empresas(db), fecha=date.today(), error=None,
+        active_page="inventory_dispatch", page_title="Despacho de productos",
+    ))
+
+
+@router.post("/despacho", response_class=HTMLResponse, name="create_inventory_dispatch")
+async def dispatch_create(request: Request, db: Session = Depends(get_db)):
+    try:
+        movement = create_dispatch(db, _dispatch_from_form(await _form(request)))
+    except (InventoryMovementError, ValidationError) as exc:
+        return templates.TemplateResponse(request=request, name="inventory/dispatch.html", context=context(
+            empresas=listar_empresas(db), fecha=date.today(), error=str(exc),
+            active_page="inventory_dispatch", page_title="Despacho de productos",
+        ), status_code=status.HTTP_422_UNPROCESSABLE_CONTENT)
+    except Exception:
+        return templates.TemplateResponse(request=request, name="inventory/dispatch.html", context=context(
+            empresas=listar_empresas(db), fecha=date.today(),
+            error="No fue posible registrar el despacho. No se guardó ninguna línea.",
+            active_page="inventory_dispatch", page_title="Despacho de productos",
+        ), status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    return templates.TemplateResponse(request=request, name="inventory/dispatch_success.html", context=context(
+        movement=movement, active_page="inventory_dispatch", page_title="Despacho confirmado",
+    ), status_code=status.HTTP_201_CREATED)
+
+
 @router.get("/movimientos", response_class=HTMLResponse, name="inventory_movements")
 def movements(request: Request, db: Session = Depends(get_db)):
     company_text = request.query_params.get("empresa_id", "").strip()
@@ -117,7 +172,7 @@ def movements(request: Request, db: Session = Depends(get_db)):
         movements=list_movements(db, company_id, movement_type, from_date, to_date, search),
         empresas=listar_empresas(db), selected_company=company_text, selected_type=movement_type,
         date_from=from_text, date_to=to_text, search=search,
-        movement_types=["RECEPCION", "AJUSTE_INICIAL", "AJUSTE_POSITIVO", "AJUSTE_NEGATIVO"],
+        movement_types=["RECEPCION", "DESPACHO", "AJUSTE_INICIAL", "AJUSTE_POSITIVO", "AJUSTE_NEGATIVO"],
         active_page="inventory_movements", page_title="Movimientos de inventario",
     ))
 

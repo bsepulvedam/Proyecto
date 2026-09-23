@@ -374,13 +374,49 @@ def calculate_stock_from_movements(db: Session) -> dict[tuple[int, int], Decimal
 
 
 def calculate_weighted_average_cost(db: Session) -> dict[tuple[int, int], Decimal]:
-    quantities, values = defaultdict(lambda: Decimal("0")), defaultdict(lambda: Decimal("0"))
-    query = select(MovimientoInventario).options(selectinload(MovimientoInventario.detalles))
+    """Costo promedio ponderado móvil real, por ``(empresa_id, producto_id)``.
+
+    Deriva el costo del ledger en cada llamada -- no hay campo mutable que
+    persistir ni sincronizar (ADR-005 rechaza explícitamente un "saldo
+    mutable único"; el mismo principio aplica aquí al costo). Recorre los
+    movimientos en orden cronológico (``fecha``, luego ``id`` como
+    desempate determinístico -- ``id`` refleja el orden real de creación,
+    igual que la secuencia de ``numero_documento``).
+
+    Reglas de un promedio ponderado móvil real:
+    - Solo una entrada (``POSITIVE_TYPES``) con ``valor_total`` conocido
+      mueve el promedio. ``create_return``/``create_adjustment`` nunca
+      escriben ``valor_total`` (queda ``NULL``) -- una devolución o ajuste
+      positivo sin costo conocido no diluye el promedio, simplemente no lo
+      toca.
+    - Una salida (``NEGATIVE_TYPES``) consume al costo vigente y nunca
+      modifica el promedio.
+    - ALM y Mas Vial (ADR-012, costo fijo = 1 "definitivo") jamás pasan por
+      el cálculo: se fuerza ``Decimal("1")`` explícitamente para cualquier
+      empresa distinta de ``BOLIKLOR``, sin depender de que el dato de
+      entrada siempre respete esa invariante.
+    """
+    stock: dict[tuple[int, int], Decimal] = defaultdict(lambda: Decimal("0"))
+    average: dict[tuple[int, int], Decimal] = defaultdict(lambda: Decimal("0"))
+    query = (
+        select(MovimientoInventario)
+        .options(joinedload(MovimientoInventario.empresa), selectinload(MovimientoInventario.detalles))
+        .order_by(MovimientoInventario.fecha, MovimientoInventario.id)
+    )
     for movement in db.scalars(query).all():
-        if movement.tipo not in POSITIVE_TYPES:
+        if movement.empresa.codigo != "BOLIKLOR":
+            for line in movement.detalles:
+                average[(movement.empresa_id, line.producto_id)] = Decimal("1")
             continue
         for line in movement.detalles:
             key = (movement.empresa_id, line.producto_id)
-            quantities[key] += line.cantidad_presentaciones
-            values[key] += line.valor_total or Decimal("0")
-    return {key: values[key] / quantity for key, quantity in quantities.items() if quantity > 0}
+            quantity = line.cantidad_presentaciones
+            if movement.tipo in POSITIVE_TYPES:
+                if line.valor_total is not None:
+                    current_stock, current_average = stock[key], average[key]
+                    new_stock = current_stock + quantity
+                    average[key] = (current_stock * current_average + line.valor_total) / new_stock
+                stock[key] += quantity
+            elif movement.tipo in NEGATIVE_TYPES:
+                stock[key] -= quantity
+    return dict(average)

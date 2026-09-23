@@ -28,6 +28,7 @@
           <a class="sidebar-sublink{% if active_page == 'inventory_stock_boliklor' %} active{% endif %}" href="{{ url_for('inventory_stock_boliklor') }}">Stock Boliklor</a>
           <a class="sidebar-sublink{% if active_page == 'inventory_stock_alm' %} active{% endif %}" href="{{ url_for('inventory_stock_alm') }}">Stock ALM</a>
           <a class="sidebar-sublink{% if active_page == 'inventory_return' %} active{% endif %}" href="{{ url_for('inventory_return') }}">Devoluciones</a>
+          <a class="sidebar-sublink{% if active_page == 'inventory_adjustment' %} active{% endif %}" href="{{ url_for('inventory_adjustment') }}">Ajuste</a>
           <a class="sidebar-sublink{% if active_page == 'inventory_movements' %} active{% endif %}" href="{{ url_for('inventory_movements') }}">Movimientos</a>
           <a class="sidebar-sublink{% if active_page == 'inventory_costs' %} active{% endif %}" href="{{ url_for('inventory_costs') }}">Costo inventario</a>
           <a class="sidebar-sublink sidebar-sublink--admin{% if active_page == 'inventory_initialization' %} active{% endif %}" href="{{ url_for('inventory_initialization') }}">Inicialización (admin)</a>

@@ -11,12 +11,13 @@ from sqlalchemy.orm import Session
 
 from app.database.session import get_db
 from app.schemas.movimiento_inventario import (
-    DespachoCreate, DevolucionCreate, LineaDespachoCreate, LineaDevolucionCreate,
-    LineaRecepcionCreate, RecepcionCreate,
+    AjusteCreate, DespachoCreate, DevolucionCreate, LineaAjusteCreate, LineaDespachoCreate,
+    LineaDevolucionCreate, LineaRecepcionCreate, RecepcionCreate,
 )
 from app.services.inventario_catalogo_service import listar_empresas, product_natural_key
 from app.services.inventario_movimiento_service import (
-    InventoryMovementError, create_dispatch, create_receipt, create_return, get_movement, list_movements,
+    InventoryMovementError, create_adjustment, create_dispatch, create_receipt, create_return,
+    get_movement, list_movements,
 )
 from app.services.inventory_stock_service import MODE_TRANSITION, inventory_stock_rows, transactional_inventory_values
 
@@ -203,6 +204,62 @@ async def return_create(request: Request, db: Session = Depends(get_db)):
         ), status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
     return templates.TemplateResponse(request=request, name="inventory/return_success.html", context=context(
         movement=movement, active_page="inventory_return", page_title="Devolución confirmada",
+    ), status_code=status.HTTP_201_CREATED)
+
+
+def _adjustment_from_form(form) -> AjusteCreate:
+    product_ids, quantities = form.get("producto_id", []), form.get("cantidad", [])
+    if not product_ids:
+        raise InventoryMovementError("Agrega al menos un producto al carrito.")
+    lines = []
+    for index, product_id in enumerate(product_ids):
+        try:
+            lines.append(LineaAjusteCreate(
+                producto_id=int(product_id), cantidad_presentaciones=Decimal(quantities[index].replace(",", ".")),
+            ))
+        except (ValueError, InvalidOperation, IndexError, ValidationError) as exc:
+            raise InventoryMovementError(f"Revisa la cantidad de la línea {index + 1}.") from exc
+    tipo_ajuste = _first(form, "tipo_ajuste")
+    if tipo_ajuste not in ("AJUSTE_POSITIVO", "AJUSTE_NEGATIVO"):
+        raise InventoryMovementError("Selecciona un tipo de ajuste válido.")
+    motivo = _first(form, "motivo")
+    if not motivo:
+        raise InventoryMovementError("El motivo del ajuste es obligatorio.")
+    try:
+        return AjusteCreate(
+            empresa_id=int(_first(form, "empresa_id")), fecha=date.today(),
+            tipo_ajuste=tipo_ajuste, motivo=motivo,
+            referencia=_first(form, "referencia") or None, lineas=lines,
+        )
+    except (ValueError, ValidationError) as exc:
+        raise InventoryMovementError("Selecciona una empresa válida.") from exc
+
+
+@router.get("/ajuste", response_class=HTMLResponse, name="inventory_adjustment")
+def adjustment_form(request: Request, db: Session = Depends(get_db)):
+    return templates.TemplateResponse(request=request, name="inventory/adjustment.html", context=context(
+        empresas=listar_empresas(db), fecha=date.today(), error=None,
+        active_page="inventory_adjustment", page_title="Ajuste de inventario",
+    ))
+
+
+@router.post("/ajuste", response_class=HTMLResponse, name="create_inventory_adjustment")
+async def adjustment_create(request: Request, db: Session = Depends(get_db)):
+    try:
+        movement = create_adjustment(db, _adjustment_from_form(await _form(request)))
+    except (InventoryMovementError, ValidationError) as exc:
+        return templates.TemplateResponse(request=request, name="inventory/adjustment.html", context=context(
+            empresas=listar_empresas(db), fecha=date.today(), error=str(exc),
+            active_page="inventory_adjustment", page_title="Ajuste de inventario",
+        ), status_code=status.HTTP_422_UNPROCESSABLE_CONTENT)
+    except Exception:
+        return templates.TemplateResponse(request=request, name="inventory/adjustment.html", context=context(
+            empresas=listar_empresas(db), fecha=date.today(),
+            error="No fue posible registrar el ajuste. No se guardó ninguna línea.",
+            active_page="inventory_adjustment", page_title="Ajuste de inventario",
+        ), status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    return templates.TemplateResponse(request=request, name="inventory/adjustment_success.html", context=context(
+        movement=movement, active_page="inventory_adjustment", page_title="Ajuste confirmado",
     ), status_code=status.HTTP_201_CREATED)
 
 

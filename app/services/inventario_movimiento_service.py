@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session, joinedload, selectinload
 from app.models.movimiento_inventario import DetalleMovimientoInventario, MovimientoInventario
 from app.models.producto import Producto
 from app.schemas.bot_inventario import OrigenMovimientoBot
-from app.schemas.movimiento_inventario import DespachoCreate, DevolucionCreate, RecepcionCreate
+from app.schemas.movimiento_inventario import AjusteCreate, DespachoCreate, DevolucionCreate, RecepcionCreate
 
 logger = logging.getLogger(__name__)
 movimiento_sequence = Sequence("movimiento_inventario_seq")
@@ -258,6 +258,77 @@ def create_return(
     except Exception:
         db.rollback()
         logger.exception("No fue posible crear la devolución")
+        raise
+
+
+def create_adjustment(
+    db: Session, data: AjusteCreate, origen_bot: OrigenMovimientoBot | None = None
+) -> MovimientoInventario:
+    """Crea un ajuste positivo o negativo, según ``data.tipo_ajuste``.
+
+    AJUSTE_POSITIVO es simétrico a ``create_return`` (suma stock, sin
+    validar disponibilidad). AJUSTE_NEGATIVO es simétrico a
+    ``create_dispatch`` (mismo lock + ``_stock_disponible`` que despacho,
+    misma regla de stock negativo prohibido, CURRENT.md §6.3'). El campo
+    ``motivo`` (obligatorio en el schema) se guarda en ``observaciones``:
+    no existe columna dedicada y agregar una implicaría una migración
+    nueva; se reutiliza el mismo patrón ya usado por la devolución al
+    apoyarse en ``referencia`` en vez de una FK nueva.
+    """
+    origen_bot = origen_bot or OrigenMovimientoBot()
+    is_negative = data.tipo_ajuste == "AJUSTE_NEGATIVO"
+    try:
+        if not data.lineas:
+            raise InventoryMovementError("El ajuste debe incluir al menos un producto.")
+        ids = {line.producto_id for line in data.lineas}
+        products = _load_products(db, ids)
+        if len(products) != len(ids):
+            raise InventoryMovementError("Uno o más productos ya no existen.")
+        for index, line in enumerate(data.lineas, start=1):
+            if products[line.producto_id].empresa_id != data.empresa_id:
+                raise InventoryMovementError(f"La línea {index} pertenece a otra empresa.")
+
+        if is_negative:
+            _lock_products_for_dispatch(db, data.empresa_id, ids)
+            available = _stock_disponible(db, data.empresa_id, ids)
+
+        for index, line in enumerate(data.lineas, start=1):
+            product = products[line.producto_id]
+            quantity = line.cantidad_presentaciones
+            if not product.unidad_stock.permite_decimales and quantity != quantity.to_integral_value():
+                raise InventoryMovementError(f"{product.sku} no permite cantidades decimales en {product.unidad_stock.codigo}.")
+            if is_negative:
+                remaining = available.get(product.id, Decimal("0")) - quantity
+                if remaining < 0:
+                    raise InventoryMovementError(f"{product.sku} no tiene stock suficiente para ajustar {quantity}.")
+                available[product.id] = remaining
+
+        movement = MovimientoInventario(
+            tipo=data.tipo_ajuste, empresa_id=data.empresa_id, fecha=data.fecha,
+            numero_documento=_next_movement_number(db),
+            referencia=data.referencia or None, observaciones=data.motivo,
+            origen=origen_bot.origen, actor_referencia=origen_bot.actor_referencia,
+        )
+        for line in data.lineas:
+            product = products[line.producto_id]
+            movement.detalles.append(DetalleMovimientoInventario(
+                producto_id=product.id, cantidad_presentaciones=line.cantidad_presentaciones,
+                unidad_presentacion_snapshot=product.unidad_stock.codigo,
+                factor_conversion_snapshot=product.factor_conversion,
+                unidad_contenido_snapshot=product.unidad_contenido.codigo if product.unidad_contenido else None,
+                unidad_costo_snapshot=product.unidad_costo.codigo if product.unidad_costo else None,
+                observacion_linea=line.observacion_linea or None,
+            ))
+        db.add(movement)
+        db.commit()
+        return get_movement(db, movement.id) or movement
+    except InventoryMovementError as exc:
+        db.rollback()
+        logger.warning("Ajuste rechazado: %s", exc)
+        raise
+    except Exception:
+        db.rollback()
+        logger.exception("No fue posible crear el ajuste")
         raise
 
 

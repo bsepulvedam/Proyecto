@@ -56,3 +56,50 @@ class RecepcionBotCreate(BaseModel):
     observaciones: str | None = None
     lineas: list[LineaRecepcionBotCreate] = Field(min_length=1)
     solicitado_por: str = Field(min_length=1, max_length=200)
+
+
+class LineaDespachoBotCreate(BaseModel):
+    """Línea de despacho tal como la conoce el bot: por SKU, sin costo (el
+    despacho no lleva costeo de salida, igual que el flujo web)."""
+
+    sku: str = Field(min_length=1, max_length=100)
+    cantidad_presentaciones: Decimal = Field(gt=0)
+    observacion_linea: str | None = None
+
+
+class DespachoBotCreate(BaseModel):
+    """Payload de ``POST /api/bot/inventario/despachos``. Mismo patrón que
+    ``RecepcionBotCreate``: ``empresa_codigo``/``sku`` en vez de ids
+    internos, resueltos por el router antes de llamar ``create_dispatch``."""
+
+    empresa_codigo: str = Field(min_length=1, max_length=50)
+    fecha: date
+    guia_despacho: str | None = None
+    entregado_a: str | None = None
+    comuna: str | None = None
+    referencia: str | None = None
+    observaciones: str | None = None
+    lineas: list[LineaDespachoBotCreate] = Field(min_length=1)
+    solicitado_por: str = Field(min_length=1, max_length=200)
+
+
+class LineaDevolucionBotCreate(BaseModel):
+    """Línea de devolución tal como la conoce el bot: por SKU, sin costo."""
+
+    sku: str = Field(min_length=1, max_length=100)
+    cantidad_presentaciones: Decimal = Field(gt=0)
+    observacion_linea: str | None = None
+
+
+class DevolucionBotCreate(BaseModel):
+    """Payload de ``POST /api/bot/inventario/devoluciones``. Mismo patrón que
+    ``RecepcionBotCreate``, resuelto por el router antes de llamar
+    ``create_return``."""
+
+    empresa_codigo: str = Field(min_length=1, max_length=50)
+    fecha: date
+    guia_despacho: str | None = None
+    referencia: str | None = None
+    observaciones: str | None = None
+    lineas: list[LineaDevolucionBotCreate] = Field(min_length=1)
+    solicitado_por: str = Field(min_length=1, max_length=200)

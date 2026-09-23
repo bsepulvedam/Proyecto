@@ -150,6 +150,26 @@ class BotInventarioApiTests(unittest.TestCase):
         payload.update(overrides)
         return payload
 
+    def _dispatch_payload(self, **overrides):
+        payload = {
+            "empresa_codigo": "BOLIKLOR",
+            "fecha": "2026-09-01",
+            "lineas": [{"sku": "BOL-1", "cantidad_presentaciones": "2"}],
+            "solicitado_por": "Juan Pérez (Telegram id 5839201)",
+        }
+        payload.update(overrides)
+        return payload
+
+    def _return_payload(self, **overrides):
+        payload = {
+            "empresa_codigo": "BOLIKLOR",
+            "fecha": "2026-09-01",
+            "lineas": [{"sku": "BOL-1", "cantidad_presentaciones": "2"}],
+            "solicitado_por": "Juan Pérez (Telegram id 5839201)",
+        }
+        payload.update(overrides)
+        return payload
+
     # --- GET /productos ---
 
     def test_productos_sin_api_key_devuelve_401(self):
@@ -243,6 +263,101 @@ class BotInventarioApiTests(unittest.TestCase):
         headers = self.auth_headers({"Idempotency-Key": "telegram-msg-2"})
         payload = self._receipt_payload(lineas=[{"sku": "NOEXISTE", "cantidad_presentaciones": "1", "costo_unitario": "10"}])
         response = self.client.post("/api/bot/inventario/recepciones", json_body=payload, headers=headers)
+        self.assertEqual(response.status_code, 422)
+
+    # --- POST /despachos ---
+
+    def test_despachos_sin_api_key_devuelve_401(self):
+        response = self.client.post("/api/bot/inventario/despachos", json_body=self._dispatch_payload())
+        self.assertEqual(response.status_code, 401)
+
+    def test_despachos_sin_idempotency_key_devuelve_400(self):
+        response = self.client.post(
+            "/api/bot/inventario/despachos", json_body=self._dispatch_payload(), headers=self.auth_headers(),
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_despachos_crea_movimiento_y_es_idempotente(self):
+        self._receive_via_service(quantity="10")
+        headers = self.auth_headers({"Idempotency-Key": "telegram-msg-despacho-1"})
+        first = self.client.post("/api/bot/inventario/despachos", json_body=self._dispatch_payload(), headers=headers)
+        self.assertEqual(first.status_code, 201)
+        first_data = first.json()
+        self.assertTrue(first_data["creado"])
+
+        second = self.client.post("/api/bot/inventario/despachos", json_body=self._dispatch_payload(), headers=headers)
+        self.assertEqual(second.status_code, 200)
+        second_data = second.json()
+        self.assertFalse(second_data["creado"])
+        self.assertEqual(second_data["movimiento_id"], first_data["movimiento_id"])
+
+        with self.Session() as db:
+            self.assertEqual(
+                db.scalar(select(func.count()).select_from(MovimientoInventario).where(MovimientoInventario.tipo == "DESPACHO")),
+                1,
+            )
+
+    def test_despachos_empresa_inexistente_devuelve_422(self):
+        headers = self.auth_headers({"Idempotency-Key": "telegram-msg-despacho-2"})
+        response = self.client.post(
+            "/api/bot/inventario/despachos", json_body=self._dispatch_payload(empresa_codigo="NOEXISTE"), headers=headers,
+        )
+        self.assertEqual(response.status_code, 422)
+
+    def test_despachos_sku_inexistente_devuelve_422(self):
+        headers = self.auth_headers({"Idempotency-Key": "telegram-msg-despacho-3"})
+        payload = self._dispatch_payload(lineas=[{"sku": "NOEXISTE", "cantidad_presentaciones": "1"}])
+        response = self.client.post("/api/bot/inventario/despachos", json_body=payload, headers=headers)
+        self.assertEqual(response.status_code, 422)
+
+    def test_despachos_stock_insuficiente_devuelve_422(self):
+        headers = self.auth_headers({"Idempotency-Key": "telegram-msg-despacho-4"})
+        payload = self._dispatch_payload(lineas=[{"sku": "BOL-1", "cantidad_presentaciones": "1"}])
+        response = self.client.post("/api/bot/inventario/despachos", json_body=payload, headers=headers)
+        self.assertEqual(response.status_code, 422)
+
+    # --- POST /devoluciones ---
+
+    def test_devoluciones_sin_api_key_devuelve_401(self):
+        response = self.client.post("/api/bot/inventario/devoluciones", json_body=self._return_payload())
+        self.assertEqual(response.status_code, 401)
+
+    def test_devoluciones_sin_idempotency_key_devuelve_400(self):
+        response = self.client.post(
+            "/api/bot/inventario/devoluciones", json_body=self._return_payload(), headers=self.auth_headers(),
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_devoluciones_crea_movimiento_sin_stock_previo_y_es_idempotente(self):
+        headers = self.auth_headers({"Idempotency-Key": "telegram-msg-devolucion-1"})
+        first = self.client.post("/api/bot/inventario/devoluciones", json_body=self._return_payload(), headers=headers)
+        self.assertEqual(first.status_code, 201)
+        first_data = first.json()
+        self.assertTrue(first_data["creado"])
+
+        second = self.client.post("/api/bot/inventario/devoluciones", json_body=self._return_payload(), headers=headers)
+        self.assertEqual(second.status_code, 200)
+        second_data = second.json()
+        self.assertFalse(second_data["creado"])
+        self.assertEqual(second_data["movimiento_id"], first_data["movimiento_id"])
+
+        with self.Session() as db:
+            self.assertEqual(
+                db.scalar(select(func.count()).select_from(MovimientoInventario).where(MovimientoInventario.tipo == "DEVOLUCION")),
+                1,
+            )
+
+    def test_devoluciones_empresa_inexistente_devuelve_422(self):
+        headers = self.auth_headers({"Idempotency-Key": "telegram-msg-devolucion-2"})
+        response = self.client.post(
+            "/api/bot/inventario/devoluciones", json_body=self._return_payload(empresa_codigo="NOEXISTE"), headers=headers,
+        )
+        self.assertEqual(response.status_code, 422)
+
+    def test_devoluciones_sku_inexistente_devuelve_422(self):
+        headers = self.auth_headers({"Idempotency-Key": "telegram-msg-devolucion-3"})
+        payload = self._return_payload(lineas=[{"sku": "NOEXISTE", "cantidad_presentaciones": "1"}])
+        response = self.client.post("/api/bot/inventario/devoluciones", json_body=payload, headers=headers)
         self.assertEqual(response.status_code, 422)
 
 

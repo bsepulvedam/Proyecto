@@ -13,9 +13,10 @@ La autenticación se monta en ``app/main.py`` como dependencia del router
 completo (``require_service_key``), no endpoint por endpoint, para que ninguna
 ruta futura de este módulo pueda quedar expuesta por olvido.
 
-Fase 1 (este trabajo): 3 consultas + recepciones. Los endpoints de
-despacho/devolución/ajuste son Fase 4 del roadmap y están bloqueados hasta que
-el ERP tenga esos flujos operacionales (§5 del diseño).
+Fase 1: 3 consultas + recepciones. Fase 4 (este trabajo): despacho y
+devolución, reutilizando ``create_dispatch``/``create_return`` de
+``inventario_movimiento_service`` (Fase 3), ya operacionales en el ERP.
+Ajuste vía bot sigue sin implementar.
 """
 
 from datetime import date
@@ -30,10 +31,28 @@ from app.models.empresa import Empresa
 from app.models.idempotencia_bot import ClaveIdempotenciaBot
 from app.models.movimiento_inventario import MovimientoInventario
 from app.models.producto import Producto
-from app.schemas.bot_inventario import OrigenMovimientoBot, RecepcionBotCreate
-from app.schemas.movimiento_inventario import LineaRecepcionCreate, RecepcionCreate
+from app.schemas.bot_inventario import (
+    DespachoBotCreate,
+    DevolucionBotCreate,
+    OrigenMovimientoBot,
+    RecepcionBotCreate,
+)
+from app.schemas.movimiento_inventario import (
+    DespachoCreate,
+    DevolucionCreate,
+    LineaDespachoCreate,
+    LineaDevolucionCreate,
+    LineaRecepcionCreate,
+    RecepcionCreate,
+)
 from app.services.inventario_catalogo_service import listar_productos
-from app.services.inventario_movimiento_service import InventoryMovementError, create_receipt, list_movements
+from app.services.inventario_movimiento_service import (
+    InventoryMovementError,
+    create_dispatch,
+    create_receipt,
+    create_return,
+    list_movements,
+)
 from app.services.inventory_stock_service import inventory_stock_rows
 
 router = APIRouter(prefix="/api/bot/inventario", tags=["bot-inventario"])
@@ -164,7 +183,7 @@ def _resolve_producto_ids(db: Session, skus: set[str]) -> dict[str, int]:
     return resolved
 
 
-def _receipt_response(movement: MovimientoInventario, creado: bool) -> dict:
+def _movement_response(movement: MovimientoInventario, creado: bool) -> dict:
     return {
         "movimiento_id": movement.id,
         "numero_documento": movement.numero_documento,
@@ -180,16 +199,12 @@ def bot_create_receipt(
     idempotency_key: str | None = Header(default=None, alias=IDEMPOTENCY_HEADER),
     db: Session = Depends(get_db),
 ) -> dict:
-    if not idempotency_key or not idempotency_key.strip():
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Header Idempotency-Key es obligatorio.")
-    idempotency_key = idempotency_key.strip()
-    if len(idempotency_key) > _MAX_IDEMPOTENCY_KEY_LENGTH:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Idempotency-Key excede el largo máximo (200).")
+    idempotency_key = _require_idempotency_key(idempotency_key)
 
     existing = db.scalar(select(ClaveIdempotenciaBot).where(ClaveIdempotenciaBot.clave == idempotency_key))
     if existing is not None:
         response.status_code = status.HTTP_200_OK
-        return _receipt_response(existing.movimiento, creado=False)
+        return _movement_response(existing.movimiento, creado=False)
 
     try:
         empresa = _resolve_empresa_for_receipt(db, payload.empresa_codigo)
@@ -229,6 +244,113 @@ def bot_create_receipt(
         db.rollback()
         existing = db.scalar(select(ClaveIdempotenciaBot).where(ClaveIdempotenciaBot.clave == idempotency_key))
         response.status_code = status.HTTP_200_OK
-        return _receipt_response(existing.movimiento, creado=False)
+        return _movement_response(existing.movimiento, creado=False)
 
-    return _receipt_response(movement, creado=True)
+    return _movement_response(movement, creado=True)
+
+
+def _require_idempotency_key(idempotency_key: str | None) -> str:
+    if not idempotency_key or not idempotency_key.strip():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Header Idempotency-Key es obligatorio.")
+    idempotency_key = idempotency_key.strip()
+    if len(idempotency_key) > _MAX_IDEMPOTENCY_KEY_LENGTH:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Idempotency-Key excede el largo máximo (200).")
+    return idempotency_key
+
+
+@router.post("/despachos", status_code=status.HTTP_201_CREATED)
+def bot_create_dispatch(
+    payload: DespachoBotCreate,
+    response: Response,
+    idempotency_key: str | None = Header(default=None, alias=IDEMPOTENCY_HEADER),
+    db: Session = Depends(get_db),
+) -> dict:
+    idempotency_key = _require_idempotency_key(idempotency_key)
+
+    existing = db.scalar(select(ClaveIdempotenciaBot).where(ClaveIdempotenciaBot.clave == idempotency_key))
+    if existing is not None:
+        response.status_code = status.HTTP_200_OK
+        return _movement_response(existing.movimiento, creado=False)
+
+    try:
+        empresa = _resolve_empresa_for_receipt(db, payload.empresa_codigo)
+        producto_ids = _resolve_producto_ids(db, {linea.sku for linea in payload.lineas})
+        data = DespachoCreate(
+            empresa_id=empresa.id, fecha=payload.fecha,
+            guia_despacho=payload.guia_despacho, entregado_a=payload.entregado_a, comuna=payload.comuna,
+            referencia=payload.referencia, observaciones=payload.observaciones,
+            lineas=[
+                LineaDespachoCreate(
+                    producto_id=producto_ids[linea.sku],
+                    cantidad_presentaciones=linea.cantidad_presentaciones,
+                    observacion_linea=linea.observacion_linea,
+                )
+                for linea in payload.lineas
+            ],
+        )
+        movement = create_dispatch(
+            db, data,
+            origen_bot=OrigenMovimientoBot(origen="BOT_TELEGRAM", actor_referencia=payload.solicitado_por),
+        )
+    except InventoryMovementError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)) from exc
+
+    try:
+        db.add(ClaveIdempotenciaBot(clave=idempotency_key, movimiento_id=movement.id))
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        existing = db.scalar(select(ClaveIdempotenciaBot).where(ClaveIdempotenciaBot.clave == idempotency_key))
+        response.status_code = status.HTTP_200_OK
+        return _movement_response(existing.movimiento, creado=False)
+
+    return _movement_response(movement, creado=True)
+
+
+@router.post("/devoluciones", status_code=status.HTTP_201_CREATED)
+def bot_create_return(
+    payload: DevolucionBotCreate,
+    response: Response,
+    idempotency_key: str | None = Header(default=None, alias=IDEMPOTENCY_HEADER),
+    db: Session = Depends(get_db),
+) -> dict:
+    idempotency_key = _require_idempotency_key(idempotency_key)
+
+    existing = db.scalar(select(ClaveIdempotenciaBot).where(ClaveIdempotenciaBot.clave == idempotency_key))
+    if existing is not None:
+        response.status_code = status.HTTP_200_OK
+        return _movement_response(existing.movimiento, creado=False)
+
+    try:
+        empresa = _resolve_empresa_for_receipt(db, payload.empresa_codigo)
+        producto_ids = _resolve_producto_ids(db, {linea.sku for linea in payload.lineas})
+        data = DevolucionCreate(
+            empresa_id=empresa.id, fecha=payload.fecha,
+            guia_despacho=payload.guia_despacho, referencia=payload.referencia,
+            observaciones=payload.observaciones,
+            lineas=[
+                LineaDevolucionCreate(
+                    producto_id=producto_ids[linea.sku],
+                    cantidad_presentaciones=linea.cantidad_presentaciones,
+                    observacion_linea=linea.observacion_linea,
+                )
+                for linea in payload.lineas
+            ],
+        )
+        movement = create_return(
+            db, data,
+            origen_bot=OrigenMovimientoBot(origen="BOT_TELEGRAM", actor_referencia=payload.solicitado_por),
+        )
+    except InventoryMovementError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)) from exc
+
+    try:
+        db.add(ClaveIdempotenciaBot(clave=idempotency_key, movimiento_id=movement.id))
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        existing = db.scalar(select(ClaveIdempotenciaBot).where(ClaveIdempotenciaBot.clave == idempotency_key))
+        response.status_code = status.HTTP_200_OK
+        return _movement_response(existing.movimiento, creado=False)
+
+    return _movement_response(movement, creado=True)

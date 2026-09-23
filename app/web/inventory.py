@@ -3,7 +3,7 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from urllib.parse import parse_qs
 
-from fastapi import APIRouter, Depends, Request, status
+from fastapi import APIRouter, Depends, Request, Response, status
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import ValidationError
@@ -19,6 +19,7 @@ from app.services.inventario_movimiento_service import (
     InventoryMovementError, create_adjustment, create_dispatch, create_receipt, create_return,
     get_movement, list_movements,
 )
+from app.services.inventory_export_service import XLSX_MEDIA_TYPE, build_movements_xlsx, movements_export_filename
 from app.services.inventory_stock_service import MODE_TRANSITION, inventory_stock_rows, transactional_inventory_values
 
 router = APIRouter(prefix="/inventario", tags=["web-inventario"])
@@ -263,8 +264,7 @@ async def adjustment_create(request: Request, db: Session = Depends(get_db)):
     ), status_code=status.HTTP_201_CREATED)
 
 
-@router.get("/movimientos", response_class=HTMLResponse, name="inventory_movements")
-def movements(request: Request, db: Session = Depends(get_db)):
+def _movement_filters_from_query(request: Request):
     company_text = request.query_params.get("empresa_id", "").strip()
     movement_type = request.query_params.get("tipo", "").strip().upper()
     from_text = request.query_params.get("fecha_desde", "").strip()
@@ -279,6 +279,12 @@ def movements(request: Request, db: Session = Depends(get_db)):
         to_date = date.fromisoformat(to_text) if to_text else None
     except ValueError:
         from_date = to_date = None
+    return company_text, movement_type, from_text, to_text, search, company_id, from_date, to_date
+
+
+@router.get("/movimientos", response_class=HTMLResponse, name="inventory_movements")
+def movements(request: Request, db: Session = Depends(get_db)):
+    company_text, movement_type, from_text, to_text, search, company_id, from_date, to_date = _movement_filters_from_query(request)
     return templates.TemplateResponse(request=request, name="inventory/movements.html", context=context(
         movements=list_movements(db, company_id, movement_type, from_date, to_date, search),
         empresas=listar_empresas(db), selected_company=company_text, selected_type=movement_type,
@@ -286,6 +292,18 @@ def movements(request: Request, db: Session = Depends(get_db)):
         movement_types=["RECEPCION", "DESPACHO", "DEVOLUCION", "AJUSTE_INICIAL", "AJUSTE_POSITIVO", "AJUSTE_NEGATIVO"],
         active_page="inventory_movements", page_title="Movimientos de inventario",
     ))
+
+
+@router.get("/movimientos/exportar", name="inventory_movements_export")
+def movements_export(request: Request, db: Session = Depends(get_db)):
+    _company_text, movement_type, _from_text, _to_text, search, company_id, from_date, to_date = _movement_filters_from_query(request)
+    content = build_movements_xlsx(list_movements(db, company_id, movement_type, from_date, to_date, search))
+    filename = movements_export_filename()
+    return Response(
+        content=content,
+        media_type=XLSX_MEDIA_TYPE,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.get("/movimientos/{movement_id}", response_class=HTMLResponse, name="inventory_movement_detail")
